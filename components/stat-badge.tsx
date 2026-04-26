@@ -1,4 +1,4 @@
-import { cn, getStatDecoration } from "@/lib/utils";
+import { cn, getStatDecoration, ordinal } from "@/lib/utils";
 
 interface StatBadgeProps {
   value: string | number;
@@ -29,7 +29,7 @@ export function StatBadge({ value, label, percentile, className, large = false }
           {value}
         </span>
         {deco?.emoji && (
-          <span className="text-sm" title={`${Math.round(percentile ?? 0)}th percentile`}>
+          <span className="text-sm" title={`${ordinal(percentile ?? 0)} percentile`}>
             {deco.emoji}
           </span>
         )}
@@ -44,7 +44,7 @@ export function StatBadge({ value, label, percentile, className, large = false }
             deco?.badge
           )}
         >
-          {Math.round(percentile)}th%ile
+          {ordinal(percentile)}%ile
         </span>
       )}
     </div>

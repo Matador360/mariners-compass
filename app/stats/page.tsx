@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { TeamStatsChart } from "@/components/charts/team-stats-chart";
 import { TridentDivider } from "@/components/trident-logo";
 import { ChartSkeleton } from "@/components/skeleton-loader";
-import { cn, statAsNumber, calculatePercentile, getStatDecoration } from "@/lib/utils";
+import { cn, statAsNumber, calculatePercentile, getStatDecoration, ordinal } from "@/lib/utils";
 import type { MLBHittingStats, MLBPitchingStats, MLBTeamStatsEntry } from "@/types/mlb";
 
 const TEAM_ID = 136;
@@ -119,7 +119,7 @@ function StatTile({ label, value, percentile, flip = false }: StatTileProps) {
       </div>
       {percentile !== undefined && (
         <span className={cn("text-[10px] px-2 py-0.5 rounded-full border w-fit font-medium", deco?.badge)}>
-          {Math.round(flip ? 100 - percentile : percentile)}th %ile in MLB
+          {ordinal(flip ? 100 - percentile : percentile)} %ile in MLB
         </span>
       )}
     </div>

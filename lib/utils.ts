@@ -6,6 +6,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function ordinal(n: number): string {
+  const abs = Math.abs(Math.round(n));
+  const mod100 = abs % 100;
+  const mod10 = abs % 10;
+  if (mod100 >= 11 && mod100 <= 13) return `${abs}th`;
+  if (mod10 === 1) return `${abs}st`;
+  if (mod10 === 2) return `${abs}nd`;
+  if (mod10 === 3) return `${abs}rd`;
+  return `${abs}th`;
+}
+
 export function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", {
