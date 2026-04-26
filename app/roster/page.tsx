@@ -13,20 +13,32 @@ const SEASON = new Date().getFullYear();
 type PositionFilter = "all" | "SP" | "RP" | "C" | "IF" | "OF" | "DH";
 type SortOption = "name" | "age" | "jersey";
 
-const POSITION_GROUPS: Record<PositionFilter, string[]> = {
-  all: [],
-  SP: ["SP"],
-  RP: ["RP", "CL"],
-  C: ["C"],
-  IF: ["1B", "2B", "3B", "SS"],
-  OF: ["LF", "CF", "RF", "OF"],
-  DH: ["DH"],
-};
-
 interface PlayerWithStats extends MLBRosterPlayer {
   hittingStats?: MLBHittingStats;
   pitchingStats?: MLBPitchingStats;
   hotCold?: "hot" | "cold" | "neutral";
+}
+
+function matchesFilter(p: PlayerWithStats, filter: PositionFilter): boolean {
+  if (filter === "all") return true;
+  const abbr = p.position.abbreviation;  // "P","C","1B","2B","3B","SS","LF","CF","RF","DH","OF"
+  const type = p.position.type;           // "Pitcher","Catcher","Infielder","Outfielder","Hitter","Two-Way Player"
+  switch (filter) {
+    case "SP":
+      return type === "Pitcher" && Number(p.pitchingStats?.gamesStarted ?? 0) >= 3;
+    case "RP":
+      return type === "Pitcher" && Number(p.pitchingStats?.gamesStarted ?? 0) < 3;
+    case "C":
+      return abbr === "C" || type === "Catcher";
+    case "IF":
+      return type === "Infielder" || ["1B","2B","3B","SS","IF"].includes(abbr);
+    case "OF":
+      return type === "Outfielder" || ["LF","CF","RF","OF"].includes(abbr);
+    case "DH":
+      return abbr === "DH" || type === "Hitter" || type === "Two-Way Player";
+    default:
+      return true;
+  }
 }
 
 function useRoster() {
@@ -35,12 +47,12 @@ function useRoster() {
 
   useEffect(() => {
     const base = "https://statsapi.mlb.com/api/v1";
-    fetch(`${base}/teams/${TEAM_ID}/roster?rosterType=active&season=${SEASON}`)
+    // hydrate=person gives us currentAge for sort
+    fetch(`${base}/teams/${TEAM_ID}/roster?rosterType=active&season=${SEASON}&hydrate=person`)
       .then((r) => r.json())
       .then(async (data: { roster: MLBRosterPlayer[] }) => {
         const roster = data.roster ?? [];
 
-        // Fetch stats for all players in parallel (batched)
         const withStats: PlayerWithStats[] = await Promise.all(
           roster.map(async (p) => {
             const posType = p.position.type;
@@ -51,10 +63,15 @@ function useRoster() {
                 `${base}/people/${p.person.id}/stats?stats=season,gameLog&group=${group}&season=${SEASON}`
               );
               const statsData = await statsRes.json();
-              const seasonStats = statsData.stats?.find((s: { type: { displayName: string } }) => s.type?.displayName === "statsSingleSeason")?.splits?.[0]?.stat;
-              const gameLogs: Array<{ stat: MLBHittingStats | MLBPitchingStats }> = statsData.stats?.find((s: { type: { displayName: string } }) => s.type?.displayName === "gameLog")?.splits ?? [];
+              const seasonStats = statsData.stats?.find(
+                (s: { type: { displayName: string } }) =>
+                  ["season", "statsSingleSeason"].includes(s.type?.displayName)
+              )?.splits?.[0]?.stat;
+              const gameLogs: Array<{ stat: MLBHittingStats | MLBPitchingStats }> =
+                statsData.stats?.find(
+                  (s: { type: { displayName: string } }) => s.type?.displayName === "gameLog"
+                )?.splits ?? [];
 
-              // Hot/cold: compare last 7 game stats to season avg
               let hotCold: "hot" | "cold" | "neutral" = "neutral";
               if (gameLogs.length >= 7 && !isPitcher) {
                 const last7 = gameLogs.slice(0, 7) as Array<{ stat: MLBHittingStats }>;
@@ -71,7 +88,7 @@ function useRoster() {
                 hotCold,
               };
             } catch {
-              return p;
+              return { ...p, hotCold: "neutral" as const };
             }
           })
         );
@@ -94,28 +111,44 @@ export default function RosterPage() {
   const filtered = useMemo(() => {
     let result = [...players];
 
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((p) => p.person.fullName.toLowerCase().includes(q));
     }
 
-    // Position filter
-    if (filter !== "all") {
-      const allowed = POSITION_GROUPS[filter];
-      result = result.filter((p) => allowed.includes(p.position.abbreviation));
-    }
+    result = result.filter((p) => matchesFilter(p, filter));
 
-    // Sort
     result.sort((a, b) => {
       if (sort === "name") return a.person.fullName.localeCompare(b.person.fullName);
-      if (sort === "jersey") return parseInt(a.jerseyNumber || "99") - parseInt(b.jerseyNumber || "99");
-      if (sort === "age") return (a.person.currentAge ?? 99) - (b.person.currentAge ?? 99);
+      if (sort === "jersey") {
+        const an = parseInt(a.jerseyNumber || "999");
+        const bn = parseInt(b.jerseyNumber || "999");
+        return an - bn;
+      }
+      if (sort === "age") {
+        const aAge = a.person.currentAge ?? 0;
+        const bAge = b.person.currentAge ?? 0;
+        return bAge - aAge; // oldest first
+      }
       return 0;
     });
 
     return result;
   }, [players, filter, sort, search]);
+
+  // Count per category for filter badges
+  const counts = useMemo(() => {
+    if (!players.length) return {} as Record<PositionFilter, number>;
+    return {
+      all: players.length,
+      SP: players.filter((p) => matchesFilter(p, "SP")).length,
+      RP: players.filter((p) => matchesFilter(p, "RP")).length,
+      C: players.filter((p) => matchesFilter(p, "C")).length,
+      IF: players.filter((p) => matchesFilter(p, "IF")).length,
+      OF: players.filter((p) => matchesFilter(p, "OF")).length,
+      DH: players.filter((p) => matchesFilter(p, "DH")).length,
+    } as Record<PositionFilter, number>;
+  }, [players]);
 
   const filters: { key: PositionFilter; label: string }[] = [
     { key: "all", label: "All" },
@@ -147,7 +180,6 @@ export default function RosterPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-black text-primary tracking-tight">Active Roster</h1>
         <p className="text-sm text-muted">
@@ -156,9 +188,7 @@ export default function RosterPage() {
         </p>
       </div>
 
-      {/* Search + filters */}
       <div className="space-y-3">
-        {/* Search */}
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -170,24 +200,27 @@ export default function RosterPage() {
           />
         </div>
 
-        {/* Position filter pills */}
         <div className="flex gap-1.5 flex-wrap">
           {filters.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setFilter(key)}
               className={cn(
-                "text-xs px-3 py-1.5 rounded-full border font-medium transition-colors",
+                "text-xs px-3 py-1.5 rounded-full border font-medium transition-colors flex items-center gap-1",
                 filter === key
                   ? "bg-teal text-white border-teal"
                   : "border-border text-muted hover:text-primary hover:border-border-accent"
               )}
             >
               {label}
+              {!loading && counts[key] !== undefined && (
+                <span className={cn("text-[10px]", filter === key ? "text-white/70" : "text-muted")}>
+                  {counts[key]}
+                </span>
+              )}
             </button>
           ))}
 
-          {/* Sort */}
           <div className="ml-auto flex items-center gap-1.5">
             <span className="text-[10px] text-muted uppercase tracking-widest">Sort:</span>
             {(["name", "jersey", "age"] as SortOption[]).map((s) => (
@@ -201,21 +234,20 @@ export default function RosterPage() {
                     : "border-border text-muted hover:text-primary"
                 )}
               >
-                {s === "jersey" ? "#" : s}
+                {s === "jersey" ? "#" : s === "age" ? "age ↓" : s}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Grid */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {[...Array(18)].map((_, i) => <PlayerCardSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="trident-card p-10 text-center text-muted">
-          No players found{search ? ` for "${search}"` : ""}.
+          No players found{search ? ` for "${search}"` : filter !== "all" ? ` in this position group` : ""}.
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -236,7 +268,6 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Hot/cold legend */}
       {!loading && filtered.length > 0 && (
         <div className="flex items-center gap-4 text-xs text-muted pt-2">
           <span>🔥 Hot last 7 (OPS &gt; 115% season avg)</span>

@@ -8,6 +8,7 @@ import { PlayerTrendChart } from "@/components/charts/player-trend-chart";
 import { TridentDivider } from "@/components/trident-logo";
 import { Skeleton } from "@/components/skeleton-loader";
 import { OutlierCallout } from "@/components/outlier-callout";
+import { ClickableStatTile } from "@/components/stat-explainer";
 import { CountingNumber } from "@/components/counting-number";
 import { Sparkline } from "@/components/sparkline";
 import { PitchArsenal, buildPitchArsenal } from "@/components/pitch-arsenal";
@@ -266,33 +267,33 @@ export default function PlayerPage() {
   const posColor = positionColor(bio?.primaryPosition?.abbreviation ?? "");
 
   const hittingTiles = hitting ? [
-    { label: "AVG", value: hitting.avg, isRate: true },
-    { label: "OBP", value: hitting.obp, isRate: true },
-    { label: "SLG", value: hitting.slg, isRate: true },
-    { label: "OPS", value: hitting.ops, isRate: true, highlight: true },
-    { label: "HR", value: hitting.homeRuns, isRate: false },
-    { label: "RBI", value: hitting.rbi, isRate: false },
-    { label: "SB", value: hitting.stolenBases, isRate: false },
-    { label: "K", value: hitting.strikeOuts, isRate: false },
-    { label: "BB", value: hitting.baseOnBalls, isRate: false },
-    { label: "G", value: hitting.gamesPlayed, isRate: false },
-    { label: "2B", value: hitting.doubles, isRate: false },
-    { label: "3B", value: hitting.triples, isRate: false },
+    { label: "AVG", value: hitting.avg },
+    { label: "OBP", value: hitting.obp },
+    { label: "SLG", value: hitting.slg },
+    { label: "OPS", value: hitting.ops, highlight: true },
+    { label: "HR", value: hitting.homeRuns },
+    { label: "RBI", value: hitting.rbi },
+    { label: "SB", value: hitting.stolenBases },
+    { label: "K", value: hitting.strikeOuts },
+    { label: "BB", value: hitting.baseOnBalls },
+    { label: "G", value: hitting.gamesPlayed },
+    { label: "2B", value: hitting.doubles },
+    { label: "3B", value: hitting.triples },
   ] : [];
 
   const pitchingTiles = pitching ? [
-    { label: "ERA", value: pitching.era, isRate: true, highlight: true },
-    { label: "WHIP", value: pitching.whip, isRate: true },
-    { label: "K/9", value: pitching.strikeoutsPer9Inn, isRate: true },
-    { label: "BB/9", value: pitching.walksPer9Inn, isRate: true },
-    { label: "K", value: pitching.strikeOuts, isRate: false },
-    { label: "W", value: pitching.wins, isRate: false },
-    { label: "L", value: pitching.losses, isRate: false },
-    { label: "SV", value: pitching.saves, isRate: false },
-    { label: "GS", value: pitching.gamesStarted, isRate: false },
-    { label: "IP", value: pitching.inningsPitched, isRate: false },
-    { label: "G", value: pitching.gamesPitched, isRate: false },
-    { label: "HR", value: pitching.homeRuns, isRate: false },
+    { label: "ERA", value: pitching.era, highlight: true },
+    { label: "WHIP", value: pitching.whip },
+    { label: "K/9", value: pitching.strikeoutsPer9Inn },
+    { label: "BB/9", value: pitching.walksPer9Inn },
+    { label: "K", value: pitching.strikeOuts },
+    { label: "W", value: pitching.wins, statKey: "WINS" },
+    { label: "L", value: pitching.losses },
+    { label: "SV", value: pitching.saves, statKey: "SAVES" },
+    { label: "GS", value: pitching.gamesStarted },
+    { label: "IP", value: pitching.inningsPitched },
+    { label: "G", value: pitching.gamesPitched },
+    { label: "HR", value: pitching.homeRuns },
   ] : [];
 
   const tiles = isPitcher ? pitchingTiles : hittingTiles;
@@ -469,21 +470,14 @@ export default function PlayerPage() {
         <div className="space-y-5 fade-up">
           {/* Stat tiles grid */}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-            {tiles.map(({ label, value, highlight }) => (
-              <div
-                key={label}
-                className={cn(
-                  "flex flex-col gap-1 p-3 rounded-xl border",
-                  highlight
-                    ? "bg-teal/5 border-teal/30"
-                    : "bg-surface-2/60 border-border"
-                )}
-              >
-                <p className="text-[9px] uppercase tracking-widest text-muted font-semibold">{label}</p>
-                <p className={cn("text-xl font-black stat-number", highlight ? "text-teal" : "text-primary")}>
-                  {value ?? "—"}
-                </p>
-              </div>
+            {(tiles as Array<{ label: string; value: string | number | undefined; highlight?: boolean; statKey?: string }>).map((t) => (
+              <ClickableStatTile
+                key={t.label}
+                label={t.label}
+                value={t.value}
+                statKey={t.statKey}
+                highlight={t.highlight}
+              />
             ))}
           </div>
 

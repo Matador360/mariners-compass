@@ -6,6 +6,7 @@ import { TridentDivider } from "@/components/trident-logo";
 import { ChartSkeleton } from "@/components/skeleton-loader";
 import { cn, statAsNumber, calculatePercentile, getStatDecoration, ordinal } from "@/lib/utils";
 import type { MLBHittingStats, MLBPitchingStats, MLBTeamStatsEntry } from "@/types/mlb";
+import { StatClickable } from "@/components/stat-explainer";
 
 const TEAM_ID = 136;
 const SEASON = new Date().getFullYear();
@@ -142,29 +143,29 @@ export default function StatsPage() {
 
   const hittingTiles = hitting
     ? [
-        { label: "Team AVG", value: hitting.avg, p: percentileFor(hitting.avg, leagueHitting, "avg") },
-        { label: "OBP", value: hitting.obp, p: percentileFor(hitting.obp, leagueHitting, "obp") },
-        { label: "SLG", value: hitting.slg, p: percentileFor(hitting.slg, leagueHitting, "slg") },
-        { label: "OPS", value: hitting.ops, p: percentileFor(hitting.ops, leagueHitting, "ops") },
-        { label: "Home Runs", value: hitting.homeRuns, p: percentileFor(hitting.homeRuns, leagueHitting, "homeRuns") },
-        { label: "RBI", value: hitting.rbi, p: percentileFor(hitting.rbi, leagueHitting, "rbi") },
-        { label: "Stolen Bases", value: hitting.stolenBases, p: percentileFor(hitting.stolenBases, leagueHitting, "stolenBases") },
-        { label: "Runs Scored", value: hitting.runs, p: percentileFor(hitting.runs, leagueHitting, "runs") },
-        { label: "Strikeouts", value: hitting.strikeOuts, p: percentileFor(hitting.strikeOuts, leagueHitting, "strikeOuts"), flip: true },
-        { label: "Walks", value: hitting.baseOnBalls, p: percentileFor(hitting.baseOnBalls, leagueHitting, "baseOnBalls") },
+        { label: "Team AVG", value: hitting.avg, p: percentileFor(hitting.avg, leagueHitting, "avg"), statKey: "AVG" },
+        { label: "OBP", value: hitting.obp, p: percentileFor(hitting.obp, leagueHitting, "obp"), statKey: "OBP" },
+        { label: "SLG", value: hitting.slg, p: percentileFor(hitting.slg, leagueHitting, "slg"), statKey: "SLG" },
+        { label: "OPS", value: hitting.ops, p: percentileFor(hitting.ops, leagueHitting, "ops"), statKey: "OPS" },
+        { label: "Home Runs", value: hitting.homeRuns, p: percentileFor(hitting.homeRuns, leagueHitting, "homeRuns"), statKey: "HR" },
+        { label: "RBI", value: hitting.rbi, p: percentileFor(hitting.rbi, leagueHitting, "rbi"), statKey: "RBI" },
+        { label: "Stolen Bases", value: hitting.stolenBases, p: percentileFor(hitting.stolenBases, leagueHitting, "stolenBases"), statKey: "SB" },
+        { label: "Runs Scored", value: hitting.runs, p: percentileFor(hitting.runs, leagueHitting, "runs"), statKey: "" },
+        { label: "Strikeouts", value: hitting.strikeOuts, p: percentileFor(hitting.strikeOuts, leagueHitting, "strikeOuts"), flip: true, statKey: "K" },
+        { label: "Walks", value: hitting.baseOnBalls, p: percentileFor(hitting.baseOnBalls, leagueHitting, "baseOnBalls"), statKey: "BB" },
       ]
     : [];
 
   const pitchingTiles = pitching
     ? [
-        { label: "ERA", value: pitching.era, p: percentileFor(pitching.era, leaguePitching, "era"), flip: true },
-        { label: "WHIP", value: pitching.whip, p: percentileFor(pitching.whip, leaguePitching, "whip"), flip: true },
-        { label: "K/9", value: pitching.strikeoutsPer9Inn, p: percentileFor(pitching.strikeoutsPer9Inn, leaguePitching, "strikeoutsPer9Inn") },
-        { label: "BB/9", value: pitching.walksPer9Inn, p: percentileFor(pitching.walksPer9Inn, leaguePitching, "walksPer9Inn"), flip: true },
-        { label: "Strikeouts", value: pitching.strikeOuts, p: percentileFor(pitching.strikeOuts, leaguePitching, "strikeOuts") },
-        { label: "Wins", value: pitching.wins, p: percentileFor(pitching.wins, leaguePitching, "wins") },
-        { label: "Saves", value: pitching.saves, p: percentileFor(pitching.saves, leaguePitching, "saves") },
-        { label: "Innings", value: pitching.inningsPitched, p: undefined },
+        { label: "ERA", value: pitching.era, p: percentileFor(pitching.era, leaguePitching, "era"), flip: true, statKey: "ERA" },
+        { label: "WHIP", value: pitching.whip, p: percentileFor(pitching.whip, leaguePitching, "whip"), flip: true, statKey: "WHIP" },
+        { label: "K/9", value: pitching.strikeoutsPer9Inn, p: percentileFor(pitching.strikeoutsPer9Inn, leaguePitching, "strikeoutsPer9Inn"), statKey: "K/9" },
+        { label: "BB/9", value: pitching.walksPer9Inn, p: percentileFor(pitching.walksPer9Inn, leaguePitching, "walksPer9Inn"), flip: true, statKey: "BB/9" },
+        { label: "Strikeouts", value: pitching.strikeOuts, p: percentileFor(pitching.strikeOuts, leaguePitching, "strikeOuts"), statKey: "K" },
+        { label: "Wins", value: pitching.wins, p: percentileFor(pitching.wins, leaguePitching, "wins"), statKey: "WINS" },
+        { label: "Saves", value: pitching.saves, p: percentileFor(pitching.saves, leaguePitching, "saves"), statKey: "SAVES" },
+        { label: "Innings", value: pitching.inningsPitched, p: undefined, statKey: "IP" },
       ]
     : [];
 
@@ -217,7 +218,9 @@ export default function StatsPage() {
             <div className="space-y-6 fade-up">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {hittingTiles.map((t) => (
-                  <StatTile key={t.label} label={t.label} value={t.value} percentile={t.p} flip={t.flip} />
+                  <StatClickable key={t.label} statKey={t.statKey ?? t.label} value={t.value ?? "—"}>
+                    <StatTile label={t.label} value={t.value} percentile={t.p} flip={t.flip} />
+                  </StatClickable>
                 ))}
               </div>
 
@@ -250,7 +253,9 @@ export default function StatsPage() {
             <div className="space-y-6 fade-up">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {pitchingTiles.map((t) => (
-                  <StatTile key={t.label} label={t.label} value={t.value} percentile={t.p} flip={t.flip} />
+                  <StatClickable key={t.label} statKey={t.statKey ?? t.label} value={t.value ?? "—"}>
+                    <StatTile label={t.label} value={t.value} percentile={t.p} flip={t.flip} />
+                  </StatClickable>
                 ))}
               </div>
             </div>
