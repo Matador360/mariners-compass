@@ -363,3 +363,61 @@ main {
 .streak-banner {
   animation: streak-glow 2s ease-in-out infinite;
 }
+
+/* ─── Hot Meter / Power Rankings ────────────────────────────────────────── */
+
+@keyframes hot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.hot-indicator {
+  animation: hot-pulse 1.8s ease-in-out infinite;
+}
+
+/* ─── Pitch Arsenal Bar ──────────────────────────────────────────────────── */
+
+.pitch-bar-enter {
+  animation: fade-up 0.3s ease-out forwards;
+}
+
+/* ─── Bloomberg density: tighter line heights in stat grids ─────────────── */
+
+.stat-dense {
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Radar chart label fix ──────────────────────────────────────────────── */
+
+.recharts-polar-angle-axis-tick-value {
+  fill: rgba(255,255,255,0.45) !important;
+  font-size: 9px !important;
+}
+
+/* ─── Pulse ticker label ─────────────────────────────────────────────────── */
+
+.pulse-label {
+  background: linear-gradient(135deg, var(--accent-teal-dim), transparent);
+}
+
+/* ─── Card hover lift ────────────────────────────────────────────────────── */
+
+.card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 163, 163, 0.12);
+}
+
+/* ─── Number flash on update ─────────────────────────────────────────────── */
+
+@keyframes num-flash {
+  0% { color: var(--accent-teal); }
+  100% { color: inherit; }
+}
+
+.num-flash {
+  animation: num-flash 0.6s ease-out forwards;
+}

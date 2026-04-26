@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, BarChart2, Users } from "lucide-react";
+import { LayoutDashboard, Calendar, BarChart2, Users, Zap, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TridentLogo } from "./trident-logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -12,6 +12,16 @@ const NAV_ITEMS = [
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/stats", label: "Team Stats", icon: BarChart2 },
   { href: "/roster", label: "Roster", icon: Users },
+  { href: "/power-rankings", label: "Power Rankings", icon: Zap },
+  { href: "/compare", label: "Compare", icon: Swords },
+];
+
+const MOBILE_NAV = [
+  { href: "/", label: "Home", icon: LayoutDashboard },
+  { href: "/schedule", label: "Schedule", icon: Calendar },
+  { href: "/roster", label: "Roster", icon: Users },
+  { href: "/power-rankings", label: "Rankings", icon: Zap },
+  { href: "/compare", label: "Compare", icon: Swords },
 ];
 
 export function Navigation({ mood }: { mood?: string }) {
@@ -80,7 +90,7 @@ export function Navigation({ mood }: { mood?: string }) {
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 bg-card/95 backdrop-blur-xl border-t border-border safe-area-pb">
         <div className="flex items-center justify-around h-full px-2">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          {MOBILE_NAV.map(({ href, label, icon: Icon }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
