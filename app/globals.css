@@ -1,0 +1,365 @@
+@import "tailwindcss";
+
+/* ─── Mariners Trident Design System ─────────────────────────────────────── */
+
+:root {
+  /* Mariners official palette */
+  --mariners-teal: #005C5C;
+  --mariners-navy: #0C2C56;
+  --mariners-silver: #C4CED4;
+
+  /* App surfaces (dark mode default) */
+  --bg-deep: #060D1A;
+  --bg-surface: #0D1F35;
+  --bg-elevated: #122848;
+  --bg-card: #0F2440;
+
+  /* Text */
+  --text-primary: #E8EDF2;
+  --text-secondary: #8BA4BA;
+  --text-muted: #4A6580;
+
+  /* Accents */
+  --accent-teal: #00A3A3;
+  --accent-teal-dim: #005C5C;
+  --accent-gold: #C9A800;
+  --accent-gold-bright: #FFB700;
+
+  /* Status */
+  --win-color: #22C55E;
+  --loss-color: #EF4444;
+  --tie-color: #6B7280;
+
+  /* Stat percentile tiers */
+  --stat-elite-color: #FFB700;
+  --stat-above-color: #22C55E;
+  --stat-below-color: #EF4444;
+  --stat-avg-color: #8BA4BA;
+
+  /* Borders */
+  --border: rgba(196, 206, 212, 0.1);
+  --border-accent: rgba(0, 163, 163, 0.25);
+
+  /* Tailwind overrides */
+  --background: var(--bg-deep);
+  --foreground: var(--text-primary);
+}
+
+/* Light mode override */
+.light {
+  --bg-deep: #F0F4F8;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #EAF0F7;
+  --bg-card: #FFFFFF;
+  --text-primary: #0C2C56;
+  --text-secondary: #3A5A7A;
+  --text-muted: #7A9AB8;
+  --border: rgba(12, 44, 86, 0.12);
+  --border-accent: rgba(0, 92, 92, 0.3);
+  --background: var(--bg-deep);
+  --foreground: var(--text-primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-gold: var(--accent-gold);
+  --color-teal: var(--accent-teal);
+  --color-navy: var(--mariners-navy);
+  --color-surface: var(--bg-surface);
+  --color-surface-2: var(--bg-elevated);
+  --color-card: var(--bg-card);
+  --color-muted: var(--text-muted);
+  --color-secondary: var(--text-secondary);
+  --color-border: var(--border);
+  --color-border-accent: var(--border-accent);
+  --color-win: var(--win-color);
+  --color-loss: var(--loss-color);
+}
+
+/* ─── Global Resets ──────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  line-height: 1.6;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+
+.stat-number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
+}
+
+.display-stat {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* ─── Cards ──────────────────────────────────────────────────────────────── */
+
+.trident-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.trident-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 1px var(--border-accent), 0 8px 24px rgba(0, 163, 163, 0.08);
+  transform: translateY(-1px);
+}
+
+.trident-card-glow {
+  box-shadow: 0 0 0 1px var(--border-accent), 0 0 24px rgba(0, 163, 163, 0.15), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Stat Decorations ───────────────────────────────────────────────────── */
+
+.stat-elite {
+  color: var(--accent-gold-bright);
+  text-shadow: 0 0 12px rgba(255, 183, 0, 0.5);
+}
+
+.stat-above {
+  color: #22C55E;
+}
+
+.stat-below {
+  color: #EF4444;
+  opacity: 0.85;
+}
+
+/* ─── Win/Loss Strip ─────────────────────────────────────────────────────── */
+
+.game-result-win {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #22C55E;
+}
+
+.game-result-loss {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #EF4444;
+}
+
+/* ─── Navigation ─────────────────────────────────────────────────────────── */
+
+.nav-link {
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+  position: relative;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+}
+
+.nav-link.active {
+  color: var(--accent-teal);
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-teal);
+  border-radius: 1px;
+}
+
+/* ─── Mood Pulse ─────────────────────────────────────────────────────────── */
+
+@keyframes mood-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.mood-emoji {
+  animation: mood-pulse 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* ─── Trident Spinner ────────────────────────────────────────────────────── */
+
+@keyframes trident-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.trident-spinner {
+  animation: trident-spin 1.2s linear infinite;
+  transform-origin: center;
+}
+
+/* ─── Fade In ────────────────────────────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fade-up 0.4s ease-out forwards;
+}
+
+.fade-up-delay-1 { animation-delay: 0.05s; opacity: 0; }
+.fade-up-delay-2 { animation-delay: 0.1s; opacity: 0; }
+.fade-up-delay-3 { animation-delay: 0.15s; opacity: 0; }
+.fade-up-delay-4 { animation-delay: 0.2s; opacity: 0; }
+
+/* ─── Skeleton Shimmer ───────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-surface) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-teal-dim);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-teal);
+}
+
+/* ─── Tooltip ────────────────────────────────────────────────────────────── */
+
+.tooltip-trigger:hover .tooltip-content {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.tooltip-content {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* ─── 1995 Theme Easter Egg ──────────────────────────────────────────────── */
+
+.theme-1995 {
+  --accent-teal: #00B3B3;
+  --accent-gold: #C9A800;
+  --bg-deep: #001A33;
+  --bg-card: #002244;
+  --bg-surface: #002244;
+}
+
+@keyframes refuse-to-lose {
+  0% { opacity: 0; letter-spacing: -0.1em; }
+  30% { opacity: 1; letter-spacing: 0.2em; }
+  70% { opacity: 1; letter-spacing: 0.05em; }
+  100% { opacity: 0; letter-spacing: 0.05em; }
+}
+
+.refuse-to-lose {
+  animation: refuse-to-lose 3s ease-in-out forwards;
+}
+
+/* ─── Recharts Overrides ─────────────────────────────────────────────────── */
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+  font-size: 11px;
+}
+
+.recharts-legend-item-text {
+  color: var(--text-secondary) !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-accent) !important;
+  border-radius: 8px !important;
+  color: var(--text-primary) !important;
+}
+
+/* ─── Responsive Utilities ───────────────────────────────────────────────── */
+
+.container-trident {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-trident { padding: 0 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .container-trident { padding: 0 2rem; }
+}
+
+/* ─── Focus Ring ─────────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Page Transitions ───────────────────────────────────────────────────── */
+
+@keyframes page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+main {
+  animation: page-in 0.25s ease-out;
+}
+
+/* ─── Winning Streak Banner ──────────────────────────────────────────────── */
+
+@keyframes streak-glow {
+  0%, 100% { box-shadow: 0 0 16px rgba(255, 183, 0, 0.3); }
+  50% { box-shadow: 0 0 32px rgba(255, 183, 0, 0.6); }
+}
+
+.streak-banner {
+  animation: streak-glow 2s ease-in-out infinite;
+}
