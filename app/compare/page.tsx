@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { ComparisonTool, buildComparePlayers, type ComparePlayer } from "@/components/comparison-tool";
 import { calcAdvancedHitting, calcAdvancedPitching } from "@/lib/calc-stats";
+import { GHOST_ROSTER_2001 } from "@/lib/ghost-teams";
 import type { MLBHittingStats, MLBPitchingStats } from "@/types/mlb";
 import { playerHeadshotUrl } from "@/lib/utils";
 
@@ -60,15 +61,20 @@ async function loadPlayers(): Promise<ComparePlayer[]> {
 
   const valid = players
     .filter((r) => r.status === "fulfilled")
-    .map((r) => (r as PromiseFulfilledResult<{
-      id: number;
-      name: string;
-      position: string;
-      isPitcher: boolean;
-      headshot: string;
-      seasonStats: Record<string, number | string>;
-      advancedStats: Record<string, number>;
-    }>).value);
+    .map(
+      (r) =>
+        (
+          r as PromiseFulfilledResult<{
+            id: number;
+            name: string;
+            position: string;
+            isPitcher: boolean;
+            headshot: string;
+            seasonStats: Record<string, number | string>;
+            advancedStats: Record<string, number>;
+          }>
+        ).value
+    );
 
   return buildComparePlayers(valid);
 }
@@ -76,13 +82,15 @@ async function loadPlayers(): Promise<ComparePlayer[]> {
 export default function ComparePage() {
   const [players, setPlayers] = useState<ComparePlayer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<"all" | "hitters" | "pitchers">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await loadPlayers();
-      setPlayers(data);
+      const [active, ghosts] = await Promise.all([
+        loadPlayers(),
+        Promise.resolve(buildComparePlayers(GHOST_ROSTER_2001)),
+      ]);
+      setPlayers([...active, ...ghosts]);
     } catch {
       // ignore
     } finally {
@@ -94,12 +102,6 @@ export default function ComparePage() {
     load();
   }, [load]);
 
-  const filtered = players.filter((p) => {
-    if (mode === "hitters") return !p.isPitcher;
-    if (mode === "pitchers") return p.isPitcher;
-    return true;
-  });
-
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="mb-6">
@@ -107,25 +109,8 @@ export default function ComparePage() {
           ⚔️ Player Comparison
         </h1>
         <p className="text-sm text-secondary mt-0.5">
-          Head-to-head radar chart + stat breakdown for any two Mariners.
+          Compare up to 5 Mariners — current roster + 👻 2001 ghosts.
         </p>
-      </div>
-
-      {/* Mode filter */}
-      <div className="flex gap-2 mb-6">
-        {(["all", "hitters", "pitchers"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-              mode === m
-                ? "bg-teal/20 border-teal text-teal"
-                : "bg-surface-2 border-border text-secondary hover:border-border-accent"
-            }`}
-          >
-            {m.charAt(0).toUpperCase() + m.slice(1)}
-          </button>
-        ))}
       </div>
 
       {loading && (
@@ -135,11 +120,11 @@ export default function ComparePage() {
         </div>
       )}
 
-      {!loading && filtered.length >= 2 && (
-        <ComparisonTool players={filtered} />
+      {!loading && players.length >= 2 && (
+        <ComparisonTool players={players} />
       )}
 
-      {!loading && filtered.length < 2 && (
+      {!loading && players.length < 2 && (
         <div className="trident-card p-8 text-center">
           <p className="text-secondary">Not enough players with stats to compare yet.</p>
         </div>
