@@ -11,6 +11,8 @@ export interface AdvancedHitting {
   sbPct: number;       // SB/(SB+CS)
   xbhPct: number;      // XBH/H
   runsPer27: number;   // offensive production proxy
+  woba: number;        // weighted on-base average (2024 weights)
+  wrcPlus: number;     // wRC+ (100 = league avg)
 }
 
 export function calcAdvancedHitting(s: MLBHittingStats): AdvancedHitting {
@@ -30,7 +32,16 @@ export function calcAdvancedHitting(s: MLBHittingStats): AdvancedHitting {
   const xbhPct = s.hits > 0 ? xbh / s.hits : 0;
   const runsPer27 = s.atBats > 0 ? (s.runs * 27) / s.atBats : 0;
 
-  return { babip, iso, kPct, bbPct, hrPer600, sbPct, xbhPct, runsPer27 };
+  const ibb = s.intentionalWalks ?? 0;
+  const uBB = s.baseOnBalls - ibb;
+  const hbp = s.hitByPitch ?? 0;
+  const singles = s.hits - s.doubles - s.triples - s.homeRuns;
+  const wobaDenom = s.atBats + s.baseOnBalls - ibb + (s.sacFlies ?? 0) + hbp;
+  const wobaNum = 0.69 * uBB + 0.72 * hbp + 0.89 * singles + 1.27 * s.doubles + 1.62 * s.triples + 2.10 * s.homeRuns;
+  const woba = wobaDenom > 0 ? Math.round((wobaNum / wobaDenom) * 1000) / 1000 : 0;
+  const wrcPlus = Math.round(((woba - 0.315) / 1.24 + 0.118) / 0.118 * 100);
+
+  return { babip, iso, kPct, bbPct, hrPer600, sbPct, xbhPct, runsPer27, woba, wrcPlus };
 }
 
 export function fmtRate(n: number, digits = 3): string {
@@ -39,6 +50,30 @@ export function fmtRate(n: number, digits = 3): string {
 
 export function fmtPct(n: number, digits = 1): string {
   return `${(n * 100).toFixed(digits)}%`;
+}
+
+export function calcWOBA(s: MLBHittingStats): number {
+  const ibb = s.intentionalWalks ?? 0;
+  const uBB = s.baseOnBalls - ibb;
+  const hbp = s.hitByPitch ?? 0;
+  const singles = s.hits - s.doubles - s.triples - s.homeRuns;
+  const denom = s.atBats + s.baseOnBalls - ibb + (s.sacFlies ?? 0) + hbp;
+  if (denom <= 0) return 0;
+  const num = 0.69 * uBB + 0.72 * hbp + 0.89 * singles + 1.27 * s.doubles + 1.62 * s.triples + 2.10 * s.homeRuns;
+  return Math.round((num / denom) * 1000) / 1000;
+}
+
+export function calcWRCPlus(woba: number): number {
+  return Math.round(((woba - 0.315) / 1.24 + 0.118) / 0.118 * 100);
+}
+
+export function calcXFIP(s: MLBPitchingStats): number {
+  const ip = parseFloat(s.inningsPitched ?? '0');
+  if (ip <= 0) return FIP_CONSTANT;
+  const tbf = Math.round(ip * 3 + (s.hits ?? 0) + (s.baseOnBalls ?? 0) + (s.intentionalWalks ?? 0));
+  const xHR = tbf * 0.038;
+  const raw = (13 * xHR + 3 * ((s.baseOnBalls ?? 0) + (s.intentionalWalks ?? 0)) - 2 * (s.strikeOuts ?? 0)) / ip + FIP_CONSTANT;
+  return Math.round(Math.max(0, raw) * 100) / 100;
 }
 
 // ─── Advanced Pitching Metrics ─────────────────────────────────────────────
@@ -52,6 +87,7 @@ export interface AdvancedPitching {
   bbPct: number;       // BB% (of batters faced)
   lob: number;         // approx strand rate from ER/R ratio
   opsAgainst?: number;
+  xfip: number;        // xFIP: FIP with HR replaced by TBF×0.038
 }
 
 const FIP_CONSTANT = 3.15; // 2024 MLB average
@@ -86,7 +122,13 @@ export function calcAdvancedPitching(s: MLBPitchingStats): AdvancedPitching {
   const lobDen = lobH + lobBB + lobHBP - 1.4 * lobHR;
   const lob = lobDen > 0 ? Math.min(1, Math.max(0, lobNum / lobDen)) : 0.72;
 
-  return { fip: Math.max(0, fip), kbb, gbPct, hr9, kPct, bbPct, lob };
+  const xHR = tbf * 0.038;
+  const xfipRaw = ip > 0
+    ? (13 * xHR + 3 * ((s.baseOnBalls ?? 0) + (s.intentionalWalks ?? 0)) - 2 * (s.strikeOuts ?? 0)) / ip + FIP_CONSTANT
+    : FIP_CONSTANT;
+  const xfip = Math.round(Math.max(0, xfipRaw) * 100) / 100;
+
+  return { fip: Math.max(0, fip), kbb, gbPct, hr9, kPct, bbPct, lob, xfip };
 }
 
 // ─── League Rankings ──────────────────────────────────────────────────────
