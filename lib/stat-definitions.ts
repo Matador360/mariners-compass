@@ -179,4 +179,24 @@ export const STAT_DEFINITIONS: Record<string, StatDef> = {
     leagueAvg: "39%", leagueBest: "55%+", leagueWorst: "Under 25%",
     tip: "50%+ is elite power on contact. Under 30% is a singles hitter profile.",
   },
+  "SB%": {
+    abbr: "SB%", name: "Stolen Base Success Rate", higherIsBetter: true, category: "advanced",
+    description: "Percentage of stolen base attempts that succeed. Anything below 67% actually hurts your team — you need to succeed 70%+ just to break even on the out you risk.",
+    formula: "SB ÷ (SB + CS)",
+    leagueAvg: "79%", leagueBest: "95%+", leagueWorst: "Under 65%",
+    tip: "Under 70% is actively hurting the team. Elite base stealers run at 85%+.",
+  },
+  "GB%": {
+    abbr: "GB%", name: "Ground Ball Rate", higherIsBetter: false, category: "advanced",
+    description: "Percentage of balls in play that are ground balls. Pitchers with high GB% induce double plays and keep the ball in the park — the MLB Stats API doesn't expose raw batted ball data so we use the league-average estimate.",
+    leagueAvg: "44%", leagueBest: "55%+", leagueWorst: "Under 35%",
+    tip: "45%+ GB rate = ground-ball pitcher profile. Keeps the ball in the park and generates DPs.",
+  },
+  "LOB%": {
+    abbr: "LOB%", name: "Left on Base % (Strand Rate)", higherIsBetter: true, category: "advanced",
+    description: "Percentage of baserunners a pitcher strands without scoring. League average hovers around 72-74%. Unusually high or low LOB% tends to regress to the mean — luck runs out.",
+    formula: "(H + BB + HBP − R) ÷ (H + BB + HBP − 1.4×HR)",
+    leagueAvg: "73%", leagueBest: "82%+", leagueWorst: "Under 65%",
+    tip: "80%+ LOB% is often luck — expect regression. Under 65% usually bounces back. Middle is sustainable.",
+  },
 };

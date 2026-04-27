@@ -242,15 +242,16 @@ export function StatClickable({
       <div
         onClick={handleClick}
         className={cn(
+          "relative",
           hasDef ? "cursor-pointer group" : "",
           className
         )}
-        title={hasDef ? `Tap to learn about ${statKey}` : undefined}
+        title={hasDef ? `Learn about ${statKey}` : undefined}
       >
         {children}
         {hasDef && (
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] text-teal/60 block -mt-0.5">
-            tap for info
+          <span className="absolute top-0.5 right-0.5 text-[9px] text-teal/30 group-hover:text-teal/70 transition-colors leading-none pointer-events-none select-none">
+            ⓘ
           </span>
         )}
       </div>

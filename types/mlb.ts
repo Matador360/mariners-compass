@@ -132,6 +132,8 @@ export interface MLBPitchingStats {
   groundOutsToAirouts?: string;
   winPercentage?: string;
   pitchesPerInning?: string;
+  hitByPitch?: number;
+  battersFaced?: number;
 }
 
 export interface MLBRosterPlayer {
@@ -189,7 +191,7 @@ export interface MLBTeamStatsEntry {
 }
 
 export interface MarinersMood {
-  emoji: "🔥" | "😎" | "😐" | "😬";
+  emoji: string;
   label: string;
   description: string;
   streakCode: string;

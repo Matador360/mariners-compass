@@ -76,10 +76,15 @@ export function calcAdvancedPitching(s: MLBPitchingStats): AdvancedPitching {
   const kPct = tbf > 0 ? (s.strikeOuts ?? 0) / tbf : 0;
   const bbPct = tbf > 0 ? ((s.baseOnBalls ?? 0) + (s.intentionalWalks ?? 0)) / tbf : 0;
 
-  // LOB/strand rate proxy: R - ER indicates unearned, use ER/R ratio
+  // Standard LOB%: (H+BB+HBP-R) / (H+BB+HBP-1.4*HR)
   const r = s.runs ?? 0;
-  const er = s.earnedRuns ?? 0;
-  const lob = r > 0 ? Math.max(0, 1 - er / (r + 1)) : 0.72;
+  const lobH = s.hits ?? 0;
+  const lobBB = (s.baseOnBalls ?? 0) + (s.intentionalWalks ?? 0);
+  const lobHBP = s.hitByPitch ?? 0;
+  const lobHR = s.homeRuns ?? 0;
+  const lobNum = lobH + lobBB + lobHBP - r;
+  const lobDen = lobH + lobBB + lobHBP - 1.4 * lobHR;
+  const lob = lobDen > 0 ? Math.min(1, Math.max(0, lobNum / lobDen)) : 0.72;
 
   return { fip: Math.max(0, fip), kbb, gbPct, hr9, kPct, bbPct, lob };
 }
@@ -152,12 +157,13 @@ export function detectHittingOutliers(
   const ops = parseFloat(s.ops ?? "0");
   const avg = parseFloat(s.avg ?? "0");
 
-  if (ops > 0.950) facts.push({ emoji: "🔥", headline: `${name} is putting up ELITE OPS`, detail: `${s.ops} OPS places him in the top 5% of MLB`, tier: "elite" });
-  if (adv.kPct < 0.1 && s.atBats > 50) facts.push({ emoji: "🎯", headline: `${name} almost never strikes out`, detail: `${fmtPct(adv.kPct)} K-rate — better contact than 90% of the league`, tier: "elite" });
-  if (adv.bbPct > 0.14) facts.push({ emoji: "👁️", headline: `${name} has elite plate discipline`, detail: `${fmtPct(adv.bbPct)} walk rate — elite pitch recognition`, tier: "elite" });
-  if (adv.iso > 0.25) facts.push({ emoji: "💣", headline: `${name} is a power MONSTER`, detail: `ISO of ${fmtRate(adv.iso)} — top-tier raw power`, tier: "elite" });
-  if (adv.kPct > 0.30) facts.push({ emoji: "📉", headline: `${name} is struggling with strikeouts`, detail: `${fmtPct(adv.kPct)} K-rate — bottom 20% of MLB`, tier: "bad" });
-  if (avg < 0.2 && s.atBats > 80) facts.push({ emoji: "🥶", headline: `${name}'s average has cratered`, detail: `${s.avg} — well below the MLB average of .250`, tier: "terrible" });
+  if (ops > 0.900) facts.push({ emoji: "🔥", headline: `${name} offense is ELITE right now`, detail: `${s.ops} OPS. Best in the damn league territory. Put some respect on it.`, tier: "elite" });
+  if (adv.kPct < 0.12 && s.atBats > 50) facts.push({ emoji: "🎯", headline: `${name} makes elite contact`, detail: `${fmtPct(adv.kPct)} K-rate — better than 90% of MLB. Pitchers hate them.`, tier: "elite" });
+  if (adv.bbPct > 0.12) facts.push({ emoji: "👁️", headline: `${name} sees pitches like a hawk`, detail: `${fmtPct(adv.bbPct)} walk rate — elite plate discipline. These guys don't chase.`, tier: "elite" });
+  if (adv.iso > 0.220) facts.push({ emoji: "💣", headline: `${name} is making exits`, detail: `ISO of ${fmtRate(adv.iso)} — legitimately scary raw power numbers.`, tier: "elite" });
+  if (adv.kPct > 0.28) facts.push({ emoji: "📉", headline: `${name} is striking out too damn much`, detail: `${fmtPct(adv.kPct)} K-rate. Yeah, this is bad. Contact is a skill, fellas.`, tier: "bad" });
+  if (avg < 0.215 && s.atBats > 80) facts.push({ emoji: "🥶", headline: `${name} offense has cratered`, detail: `${s.avg} team average. Dogshit tier. The bats need to wake up.`, tier: "terrible" });
+  if (adv.sbPct < 0.65 && (s.stolenBases + (s.caughtStealing ?? 0)) >= 10) facts.push({ emoji: "🤦", headline: `${name} is costing outs on the bases`, detail: `${fmtPct(adv.sbPct)} SB success rate. Under 70% is actively hurting us. Stop running.`, tier: "bad" });
 
   return facts;
 }
@@ -169,13 +175,13 @@ export function detectPitchingOutliers(
 ): OutlierFact[] {
   const facts: OutlierFact[] = [];
   const era = parseFloat(s.era ?? "99");
-  const whip = parseFloat(s.whip ?? "99");
 
-  if (era < 2.5 && parseFloat(s.inningsPitched) > 20) facts.push({ emoji: "🔥", headline: `${name} is LIGHTS OUT`, detail: `${s.era} ERA — ace-level dominance`, tier: "elite" });
-  if (adv.kbb > 4) facts.push({ emoji: "🎯", headline: `${name} has elite command`, detail: `${adv.kbb.toFixed(2)} K/BB — misses bats and avoids walks`, tier: "elite" });
-  if (adv.fip < 2.8) facts.push({ emoji: "📊", headline: `${name}'s FIP says even better times ahead`, detail: `${adv.fip.toFixed(2)} FIP — pitching better than ERA suggests`, tier: "elite" });
-  if (era > 6.0 && parseFloat(s.inningsPitched) > 15) facts.push({ emoji: "🔴", headline: `${name} is giving up runs at an alarming rate`, detail: `${s.era} ERA — struggling badly`, tier: "terrible" });
-  if (adv.kPct < 0.15 && parseFloat(s.inningsPitched) > 20) facts.push({ emoji: "📉", headline: `${name} isn't missing many bats`, detail: `${fmtPct(adv.kPct)} K-rate — below-average strikeout stuff`, tier: "bad" });
+  if (era < 3.0 && parseFloat(s.inningsPitched) > 20) facts.push({ emoji: "🔥", headline: `${name} is LIGHTS OUT`, detail: `${s.era} ERA. Ace-level dominance. Lock it in.`, tier: "elite" });
+  if (adv.kbb > 4.5) facts.push({ emoji: "🎯", headline: `${name} has elite command`, detail: `${adv.kbb.toFixed(2)} K/BB ratio. Misses bats AND the zone. Beautiful.`, tier: "elite" });
+  if (adv.fip < 3.0 && era > 3.5) facts.push({ emoji: "📊", headline: `${name} FIP says better days are coming`, detail: `${adv.fip.toFixed(2)} FIP vs ${s.era} ERA. The defense and luck have been unkind. Regression incoming.`, tier: "elite" });
+  if (era > 5.5 && parseFloat(s.inningsPitched) > 15) facts.push({ emoji: "🔴", headline: `${name} ERA is a crime scene`, detail: `${s.era} ERA. This is dogshit tier. Someone needs to fix this.`, tier: "terrible" });
+  if (adv.kPct < 0.16 && parseFloat(s.inningsPitched) > 20) facts.push({ emoji: "📉", headline: `${name} isn't missing bats`, detail: `${fmtPct(adv.kPct)} K-rate. Aggressively mid strikeout stuff. League is making contact.`, tier: "bad" });
+  if (adv.hr9 > 1.6 && parseFloat(s.inningsPitched) > 20) facts.push({ emoji: "💣", headline: `${name} is getting launched on`, detail: `${adv.hr9.toFixed(2)} HR/9. Pitching to contact is one thing. Pitching to tape-measure shots is another.`, tier: "terrible" });
 
   return facts;
 }
@@ -187,7 +193,7 @@ export const MARINERS_FACTS = [
   { fact: "Ichiro Suzuki recorded 262 hits in 2004 — the most in a single MLB season since 1930.", emoji: "🏆" },
   { fact: "Ken Griffey Jr. hit 56 HRs in both 1997 and 1998, leading the majors both years.", emoji: "💣" },
   { fact: "The Mariners' 1995 ALDS comeback against the Yankees is remembered simply as 'The Double.'", emoji: "⚾" },
-  { fact: "Randy Johnson's 1995 season included a 2.48 ERA, 294 Ks and a complete no-hitter.", emoji: "🎯" },
+  { fact: "Randy Johnson went 18-2 with a 2.48 ERA and 294 strikeouts in 1995 — then threw 3 innings of relief in ALDS Game 5 to close out the Yankees.", emoji: "🎯" },
   { fact: "Edgar Martinez is the only primary DH in the Baseball Hall of Fame.", emoji: "🥇" },
   { fact: "Félix Hernández threw a perfect game on August 15, 2012 — the 23rd in MLB history.", emoji: "✨" },
   { fact: "The Mariners are the only franchise to never appear in a World Series.", emoji: "😤" },
