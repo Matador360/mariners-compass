@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, BarChart2, Users,
-  Zap, Swords, BookOpen, Sprout, ChevronDown, X,
+  Zap, Swords, BookOpen, Sprout, ChevronDown, X, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TridentLogo } from "./trident-logo";
@@ -21,6 +21,7 @@ const PRIMARY_NAV = [
 const SECONDARY_NAV = [
   { href: "/power-rankings", label: "Power Rankings", icon: Zap },
   { href: "/compare", label: "Compare", icon: Swords },
+  { href: "/bullpen", label: "Bullpen", icon: Activity },
   { href: "/history", label: "History", icon: BookOpen },
   { href: "/prospects", label: "Prospects", icon: Sprout },
 ];

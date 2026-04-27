@@ -199,4 +199,23 @@ export const STAT_DEFINITIONS: Record<string, StatDef> = {
     leagueAvg: "73%", leagueBest: "82%+", leagueWorst: "Under 65%",
     tip: "80%+ LOB% is often luck — expect regression. Under 65% usually bounces back. Middle is sustainable.",
   },
+  PYTHAG_W: {
+    abbr: "xW", name: "Pythagorean Wins", higherIsBetter: true, category: "advanced",
+    description: "Expected wins based on runs scored vs runs allowed using Bill James' formula (exponent 1.83). Shows how many wins the team 'deserves' based on run production — actual wins above this = lucky, below = unlucky.",
+    formula: "RS^1.83 ÷ (RS^1.83 + RA^1.83) × G",
+    leagueAvg: "81", leagueBest: "100+", leagueWorst: "Under 65",
+    tip: "Actual wins > Pythagorean wins means the team is winning close games. Regression is real. Below means they've been snake-bitten — better days ahead.",
+  },
+  MAGIC_NUM: {
+    abbr: "M#", name: "Magic Number", higherIsBetter: false, category: "advanced",
+    description: "The combination of Mariners wins needed plus second-place team losses needed to clinch the division. When it hits zero, the M's win the AL West.",
+    formula: "(G + 1) − W_SEA − L_2nd",
+    tip: "Drops by 1 for every M's win AND every second-place loss. Two things working for us at once. Root for double dips.",
+  },
+  TRAGIC_NUM: {
+    abbr: "T#", name: "Tragic Number", higherIsBetter: true, category: "advanced",
+    description: "The combination of Mariners losses that can occur plus division-leader wins before the M's are mathematically eliminated from the division race.",
+    formula: "(G + 1) − L_SEA − W_1st",
+    tip: "Drops by 1 for every M's loss OR every first-place team win. The math gets dark fast when both happen on the same day.",
+  },
 };
