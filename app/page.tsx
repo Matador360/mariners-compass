@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { usePoll, useLastUpdatedLabel } from "@/lib/mlb-poll";
 import { calcAdvancedHitting, calcAdvancedPitching, detectHittingOutliers, detectPitchingOutliers, computeHotScore, MARINERS_FACTS, fmtPct, fmtRate } from "@/lib/calc-stats";
 import { PulseTicker, buildPulseItems } from "@/components/pulse-ticker";
@@ -146,25 +146,60 @@ function LastGameHero({ game, isWin }: { game: MLBGame; isWin: boolean }) {
 
 function RecordBadge({ wins, losses, streak, streakType }: { wins: number; losses: number; streak: number; streakType: "W" | "L" }) {
   const winPct = wins + losses > 0 ? wins / (wins + losses) : 0;
+  const isWinStreak = streakType === "W" && streak >= 3;
+  const isLoseStreak = streakType === "L";
 
   return (
-    <div className="trident-card p-4 flex items-center gap-4">
+    <div className={`card-gradient-border p-5 flex items-center gap-6 ${isWinStreak ? "streak-banner" : ""}`}>
       <div className="flex-1">
-        <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Season Record</p>
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-black text-primary tabular-nums leading-none">
-            <CountingNumber value={wins} duration={600} />–<CountingNumber value={losses} duration={600} />
+        <p className="text-[10px] uppercase tracking-[0.12em] text-muted font-semibold mb-2">Season Record</p>
+        <div className="flex items-baseline gap-2.5">
+          <span
+            className="font-black text-primary tabular-nums leading-none"
+            style={{ fontFamily: "var(--font-mono)", fontSize: "clamp(2rem, 5vw, 2.8rem)", letterSpacing: "-0.05em" }}
+          >
+            <CountingNumber value={wins} duration={600} />
+            <span className="text-muted/40 mx-1 font-light">–</span>
+            <CountingNumber value={losses} duration={600} />
           </span>
-          <span className="text-sm text-muted">({winPct.toFixed(3).replace(/^0/, "")})</span>
+          <span
+            className="text-sm text-muted"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            ({winPct.toFixed(3).replace(/^0/, "")})
+          </span>
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Streak</p>
-        <p className={`text-xl font-black ${streak >= 3 && streakType === "W" ? "text-win" : streakType === "L" ? "text-loss" : "text-secondary"}`}>
+      <div className="text-right shrink-0">
+        <p className="text-[10px] uppercase tracking-[0.12em] text-muted font-semibold mb-2">Streak</p>
+        <p
+          className={`font-black leading-none ${isWinStreak ? "text-gradient-gold text-glow-gold" : isLoseStreak ? "text-loss" : "text-secondary"}`}
+          style={{ fontFamily: "var(--font-mono)", fontSize: "clamp(1.5rem, 3vw, 2rem)", letterSpacing: "-0.04em" }}
+        >
           {streakType}{streak}
         </p>
       </div>
     </div>
+  );
+}
+
+function StatCell({ v, l, fmt, good, bad }: { v: number; l: string; fmt: (n: number) => string; good: (n: number) => boolean; bad: (n: number) => boolean }) {
+  const isGood = good(v);
+  const isBad  = bad(v);
+  const color  = isGood ? "#22C55E" : isBad ? "#EF4444" : "var(--text-primary)";
+  const glow   = isGood ? "0 0 12px rgba(34,197,94,0.4)" : isBad ? "0 0 12px rgba(239,68,68,0.3)" : "none";
+  return (
+    <StatClickable statKey={l} value={fmt(v)}>
+      <div className="flex flex-col items-center gap-1 py-2.5 rounded-lg transition-all duration-150 hover:bg-white/[0.04] cursor-pointer">
+        <span
+          className="text-lg font-bold tabular-nums leading-none stat-dense"
+          style={{ color, textShadow: glow, fontFamily: "var(--font-mono)" }}
+        >
+          {fmt(v)}
+        </span>
+        <span className="text-[8px] uppercase tracking-[0.12em] text-muted font-bold">{l}</span>
+      </div>
+    </StatClickable>
   );
 }
 
@@ -189,23 +224,9 @@ function TeamStatGrid({ hitting, pitching }: { hitting: MLBHittingStats | null; 
     { v: parseFloat(pitching.strikeoutsPer9Inn ?? "0"), l: "K/9", fmt: (n: number) => n.toFixed(1), good: (n: number) => n > 9.0, bad: (n: number) => n < 7.5 },
     { v: Number(pitching.wins ?? 0), l: "W", fmt: (n: number) => String(Math.round(n)), good: (n: number) => n > 75, bad: (n: number) => n < 60 },
     { v: Number(pitching.saves ?? 0), l: "SV", fmt: (n: number) => String(Math.round(n)), good: (n: number) => n > 35, bad: (n: number) => n < 20 },
-    { v: Number(pitching.homeRuns ?? 0), l: "HR", fmt: (n: number) => String(Math.round(n)), good: (n: number) => n < 80, bad: (n: number) => n > 140 },
+    { v: Number(pitching.homeRuns ?? 0), l: "HRA", fmt: (n: number) => String(Math.round(n)), good: (n: number) => n < 80, bad: (n: number) => n > 140 },
     { v: Number(pitching.losses ?? 0), l: "L", fmt: (n: number) => String(Math.round(n)), good: (n: number) => n < 55, bad: (n: number) => n > 75 },
   ] : [];
-
-  const StatCell = ({ v, l, fmt, good, bad }: { v: number; l: string; fmt: (n: number) => string; good: (n: number) => boolean; bad: (n: number) => boolean }) => {
-    const color = good(v) ? "text-green-400" : bad(v) ? "text-red-400" : "text-primary";
-    return (
-      <StatClickable statKey={l} value={fmt(v)}>
-        <div className="flex flex-col items-center gap-0.5 py-2 rounded transition-colors hover:bg-surface-2/50">
-          <span className={`text-base font-black stat-number tabular-nums ${color}`}>
-            {fmt(v)}
-          </span>
-          <span className="text-[9px] uppercase tracking-widest text-muted font-semibold">{l}</span>
-        </div>
-      </StatClickable>
-    );
-  };
 
   return (
     <div className="trident-card p-4">
@@ -294,29 +315,193 @@ function AdvancedStatsPanel({ hitting, pitching }: { hitting: MLBHittingStats | 
   );
 }
 
+const FACT_GRADIENTS = [
+  "from-gold/10", "from-teal/10", "from-violet-500/10",
+  "from-green-500/10", "from-orange-500/10", "from-pink-500/10",
+  "from-blue-500/10", "from-red-500/10", "from-indigo-500/10",
+  "from-emerald-500/10", "from-amber-500/10", "from-cyan-500/10",
+];
+
 function DidYouKnow() {
   const [idx, setIdx] = useState(0);
-  const fact = MARINERS_FACTS[idx % MARINERS_FACTS.length];
+  const [animating, setAnimating] = useState(false);
 
-  useEffect(() => {
-    const id = setInterval(() => setIdx((i) => i + 1), 12000);
-    return () => clearInterval(id);
+  const fact = MARINERS_FACTS[idx % MARINERS_FACTS.length];
+  const gradientClass = FACT_GRADIENTS[idx % FACT_GRADIENTS.length];
+
+  const advance = useCallback(() => {
+    setAnimating(true);
+    setTimeout(() => {
+      setIdx((i) => i + 1);
+      setAnimating(false);
+    }, 220);
   }, []);
 
+  const goTo = useCallback((nextIdx: number) => {
+    setAnimating(true);
+    setTimeout(() => {
+      setIdx(nextIdx);
+      setAnimating(false);
+    }, 220);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(advance, 12000);
+    return () => clearInterval(id);
+  }, [advance]);
+
   return (
-    <div className="trident-card p-4 border-gold/20 bg-gradient-to-r from-gold/5 to-transparent">
-      <p className="text-[10px] uppercase tracking-widest text-gold font-semibold mb-2">
-        {fact.emoji} Did You Know?
-      </p>
-      <p className="text-sm text-primary leading-snug">{fact.fact}</p>
-      <div className="flex gap-1 mt-3">
+    <div className={`trident-card p-5 border-gold/20 bg-gradient-to-br ${gradientClass} to-transparent transition-all duration-500`}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] uppercase tracking-widest text-gold font-semibold">
+          Did You Know?
+        </p>
+        <button
+          onClick={advance}
+          className="text-[10px] text-muted hover:text-gold transition-colors px-1"
+        >
+          next →
+        </button>
+      </div>
+      <div
+        className="transition-all duration-220"
+        style={{
+          opacity: animating ? 0 : 1,
+          transform: animating ? "translateY(8px)" : "translateY(0px)",
+          transition: "opacity 220ms ease, transform 220ms ease",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <span className="text-4xl leading-none shrink-0 mt-0.5">{fact.emoji}</span>
+          <p className="text-base font-semibold text-primary leading-snug">{fact.fact}</p>
+        </div>
+      </div>
+      <div className="flex gap-1 mt-4 items-center">
         {MARINERS_FACTS.map((_, i) => (
           <button
             key={i}
-            onClick={() => setIdx(i)}
-            className={`h-0.5 rounded-full transition-all ${i === idx % MARINERS_FACTS.length ? "bg-gold w-4" : "bg-border w-2"}`}
+            onClick={() => goTo(i)}
+            className={`h-1 rounded-full transition-all duration-300 ${
+              i === idx % MARINERS_FACTS.length ? "bg-gold w-5" : "bg-border w-1.5 hover:bg-muted"
+            }`}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function SeasonMoodChart({ games }: { games: MLBGame[] }) {
+  const data = useMemo(() => {
+    const finished = games
+      .filter((g) => g.status.abstractGameState === "Final")
+      .sort((a, b) => a.gameDate.localeCompare(b.gameDate));
+    if (finished.length < 5) return null;
+
+    let cumulative = 0;
+    const values: number[] = [];
+    for (const g of finished) {
+      const isHome = g.teams.home.team.id === 136;
+      const us = isHome ? g.teams.home : g.teams.away;
+      const them = isHome ? g.teams.away : g.teams.home;
+      cumulative += (us.score ?? 0) - (them.score ?? 0);
+      values.push(cumulative);
+    }
+
+    // Compute current streak (most recent first)
+    const desc = [...finished].reverse();
+    let streakDir: "W" | "L" | null = null;
+    let streakCount = 0;
+    for (const g of desc) {
+      const isHome = g.teams.home.team.id === 136;
+      const us = isHome ? g.teams.home : g.teams.away;
+      const dir: "W" | "L" = us.isWinner ? "W" : "L";
+      if (!streakDir) { streakDir = dir; streakCount = 1; }
+      else if (dir === streakDir) streakCount++;
+      else break;
+    }
+
+    // Last game details
+    const last = desc[0];
+    let lastWin = false, lastClose = false, lastBlowout = false;
+    if (last) {
+      const isHome = last.teams.home.team.id === 136;
+      const us = isHome ? last.teams.home : last.teams.away;
+      const them = isHome ? last.teams.away : last.teams.home;
+      const diff = Math.abs((us.score ?? 0) - (them.score ?? 0));
+      lastWin = !!us.isWinner;
+      lastClose = diff <= 2;
+      lastBlowout = diff >= 5;
+    }
+
+    return { values, count: finished.length, streakDir, streakCount, lastWin, lastClose, lastBlowout };
+  }, [games]);
+
+  if (!data) return null;
+
+  const { values, count, streakDir, streakCount, lastWin, lastClose, lastBlowout } = data;
+  const current = values[values.length - 1];
+
+  let moodEmoji: string, moodLabel: string, moodColor: string;
+  if (streakDir === "W" && streakCount >= 5) {
+    moodEmoji = "🔥"; moodLabel = "We're f***ing ROLLING"; moodColor = "#FFB700";
+  } else if (streakDir === "W" && streakCount >= 3) {
+    moodEmoji = "😎"; moodLabel = "Vibes are immaculate. Don't jinx it."; moodColor = "#22C55E";
+  } else if (lastWin && lastBlowout) {
+    moodEmoji = "😎"; moodLabel = "Absolutely demolished those poor bastards"; moodColor = "#22C55E";
+  } else if (lastWin && lastClose) {
+    moodEmoji = "😅"; moodLabel = "Clenched the whole 9th but we'll take it"; moodColor = "#00A3A3";
+  } else if (!lastWin && lastBlowout) {
+    moodEmoji = "😡"; moodLabel = "What the actual f*** was that"; moodColor = "#EF4444";
+  } else if (!lastWin && lastClose) {
+    moodEmoji = "😔"; moodLabel = "Pain. Pure, uncut pain."; moodColor = "#F97316";
+  } else if (streakDir === "L" && streakCount >= 5) {
+    moodEmoji = "💀"; moodLabel = "Somebody check on the bullpen, I think they're dead"; moodColor = "#EF4444";
+  } else if (streakDir === "L" && streakCount >= 3) {
+    moodEmoji = "😬"; moodLabel = "Everything is fine. 🔥 This is fine."; moodColor = "#F97316";
+  } else {
+    moodEmoji = "😐"; moodLabel = "Aggressively mediocre. The Mariners special™"; moodColor = "#00A3A3";
+  }
+
+  const lineColor = current >= 0 ? "#22C55E" : "#EF4444";
+  const W = 400, H = 56, pad = 4;
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 1);
+  const range = max - min || 1;
+  const zeroY = pad + ((1 - (0 - min) / range) * (H - pad * 2));
+  const points = values.map((v, i) => [
+    pad + (i / (values.length - 1)) * (W - pad * 2),
+    pad + (1 - (v - min) / range) * (H - pad * 2),
+  ] as [number, number]);
+
+  const linePath = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L${points[points.length - 1][0].toFixed(1)},${zeroY.toFixed(1)} L${points[0][0].toFixed(1)},${zeroY.toFixed(1)} Z`;
+
+  return (
+    <div className="trident-card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
+          Season Mood · {count}G
+        </p>
+        <span className="text-xs font-bold" style={{ color: moodColor }}>
+          {moodEmoji} {moodLabel}
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
+        <line
+          x1={pad} y1={zeroY} x2={W - pad} y2={zeroY}
+          stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="5 4"
+        />
+        <path d={areaPath} fill={lineColor} fillOpacity={0.12} />
+        <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={points[points.length - 1][0]} cy={points[points.length - 1][1]} r="3" fill={lineColor} />
+      </svg>
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-[10px] text-muted">Opening Day</span>
+        <span className="text-[10px] font-bold tabular-nums" style={{ color: lineColor }}>
+          {current >= 0 ? "+" : ""}{current} run diff
+        </span>
+        <span className="text-[10px] text-muted">Now →</span>
       </div>
     </div>
   );
@@ -397,20 +582,33 @@ export default function HomePage() {
 
       <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-8 space-y-4">
         {/* Header row */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-primary tracking-tight leading-none">
-              Seattle Mariners
+            <h1
+              className="font-black text-primary leading-none tracking-tight"
+              style={{
+                fontFamily: "var(--font-grotesk)",
+                fontSize: "clamp(1.6rem, 4vw, 2.4rem)",
+                letterSpacing: "-0.03em",
+              }}
+            >
+              Seattle{" "}
+              <span className="text-gradient-teal">Mariners</span>
             </h1>
-            <p className="text-xs text-secondary mt-0.5">
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                timeZone: "America/Los_Angeles",
-              })}
+            <p className="text-xs text-secondary mt-1.5 flex items-center gap-2">
+              <span>
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  timeZone: "America/Los_Angeles",
+                })}
+              </span>
               {marinersRecord && (
-                <span className="ml-2 font-bold text-teal">
+                <span
+                  className="font-bold text-teal"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
                   {marinersRecord.wins}–{marinersRecord.losses}
                 </span>
               )}
@@ -469,6 +667,11 @@ export default function HomePage() {
               <Last10Strip games={dash.games} />
             )}
 
+            {/* Season Mood chart */}
+            {dash?.games && dash.games.length > 0 && (
+              <SeasonMoodChart games={dash.games} />
+            )}
+
             {/* Did You Know */}
             <DidYouKnow />
           </div>
@@ -494,18 +697,22 @@ export default function HomePage() {
             {/* Quick nav tiles */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { href: "/power-rankings", emoji: "⚡", label: "Power\nRankings" },
-                { href: "/compare", emoji: "⚔️", label: "Player\nCompare" },
-                { href: "/stats", emoji: "📊", label: "Team\nStats" },
-                { href: "/roster", emoji: "👥", label: "Roster" },
+                { href: "/power-rankings", emoji: "⚡", label: "Power Rankings", color: "rgba(255,183,0,0.08)", border: "rgba(255,183,0,0.2)" },
+                { href: "/compare", emoji: "⚔️", label: "Player Compare", color: "rgba(0,163,163,0.08)", border: "rgba(0,163,163,0.2)" },
+                { href: "/stats", emoji: "📊", label: "Team Stats", color: "rgba(139,164,186,0.06)", border: "rgba(139,164,186,0.15)" },
+                { href: "/roster", emoji: "👥", label: "Roster", color: "rgba(34,197,94,0.06)", border: "rgba(34,197,94,0.15)" },
               ].map((t) => (
                 <a
                   key={t.href}
                   href={t.href}
-                  className="trident-card p-3 flex flex-col items-center gap-1 hover:border-border-accent hover:bg-surface-2 transition-colors text-center"
+                  className="trident-card p-4 flex flex-col items-center gap-2 text-center group"
+                  style={{ background: t.color, borderColor: t.border }}
                 >
-                  <span className="text-xl">{t.emoji}</span>
-                  <span className="text-[10px] font-bold text-secondary whitespace-pre-line">{t.label}</span>
+                  <span className="text-2xl transition-transform duration-200 group-hover:scale-110">{t.emoji}</span>
+                  <span
+                    className="text-[10px] font-bold text-secondary group-hover:text-primary transition-colors"
+                    style={{ fontFamily: "var(--font-grotesk)" }}
+                  >{t.label}</span>
                 </a>
               ))}
             </div>

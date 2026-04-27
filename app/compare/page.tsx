@@ -12,8 +12,9 @@ interface RosterEntry {
 }
 
 async function loadPlayers(): Promise<ComparePlayer[]> {
+  const SEASON = new Date().getFullYear();
   const rosterRes = await fetch(
-    "https://statsapi.mlb.com/api/v1/teams/136/roster?rosterType=active&season=2025"
+    `https://statsapi.mlb.com/api/v1/teams/136/roster?rosterType=active&season=${SEASON}`
   );
   const rosterData = await rosterRes.json();
   const roster: RosterEntry[] = rosterData.roster ?? [];
@@ -26,7 +27,7 @@ async function loadPlayers(): Promise<ComparePlayer[]> {
         p.position.abbreviation === "P";
 
       const statsRes = await fetch(
-        `https://statsapi.mlb.com/api/v1/people/${p.person.id}/stats?stats=season&group=${isPitcher ? "pitching" : "hitting"}&season=2025`
+        `https://statsapi.mlb.com/api/v1/people/${p.person.id}/stats?stats=season&group=${isPitcher ? "pitching" : "hitting"}&season=${SEASON}`
       );
       const statsData = await statsRes.json();
       const splits = statsData.stats?.[0]?.splits ?? [];

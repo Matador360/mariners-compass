@@ -259,13 +259,64 @@ export async function computeMarinersMood(
   }
   const streakCode = streakDir ? `${streakDir}${streakCount}` : "—";
 
-  let emoji: MarinersMood["emoji"];
+  // Analyze last game for close/blowout context
+  const lastGame = finished[0];
+  let lastWin = false;
+  let lastClose = false;
+  let lastBlowout = false;
+  if (lastGame) {
+    const isMariners = lastGame.teams.home.team.id === TEAM_ID;
+    const us = isMariners ? lastGame.teams.home : lastGame.teams.away;
+    const them = isMariners ? lastGame.teams.away : lastGame.teams.home;
+    const diff = Math.abs((us.score ?? 0) - (them.score ?? 0));
+    lastWin = !!us.isWinner;
+    lastClose = diff <= 2;
+    lastBlowout = diff >= 5;
+  }
+
+  let emoji: string;
   let label: string;
   let description: string;
 
-  if (wins >= 7 && runDiff >= 15) {
+  if (streakDir === "W" && streakCount >= 5) {
     emoji = "🔥";
-    label = "On Fire";
+    label = "We're ROLLING";
+    description = "We're f***ing ROLLING. Don't look directly at it.";
+  } else if (streakDir === "W" && streakCount >= 3) {
+    emoji = "😎";
+    label = "Don't Jinx It";
+    description = "Vibes are immaculate. Don't. Jinx. It.";
+  } else if (streakDir === "L" && streakCount >= 5) {
+    emoji = "💀";
+    label = "Send Help";
+    description = "Somebody check on the bullpen, I think they're dead.";
+  } else if (streakDir === "L" && streakCount >= 3) {
+    emoji = "😬";
+    label = "Everything Is Fine";
+    description = "Everything is fine. 🔥 This is fine.";
+  } else if (lastWin && lastBlowout) {
+    emoji = "😎";
+    label = "Demolished";
+    description = "Absolutely demolished those poor bastards.";
+  } else if (lastWin && lastClose) {
+    emoji = "😅";
+    label = "Survived";
+    description = "Clenched the whole 9th but we'll take it.";
+  } else if (!lastWin && lastBlowout) {
+    emoji = "😡";
+    label = "What Was That";
+    description = "What the actual f*** was that.";
+  } else if (!lastWin && lastClose) {
+    emoji = "😔";
+    label = "Gut Punch";
+    description = "Pain. Pure, uncut pain.";
+  } else if (wins === losses) {
+    emoji = "😐";
+    label = "Mid";
+    description = "Aggressively mediocre. The Mariners special.";
+  } else if (wins >= 7 && runDiff >= 15) {
+    emoji = "🔥";
+    label = "Cooking";
     description = "The M's are absolutely cooking right now.";
   } else if (wins >= 6 || runDiff >= 5) {
     emoji = "😎";
@@ -274,7 +325,7 @@ export async function computeMarinersMood(
   } else if (wins <= 3 || runDiff <= -10) {
     emoji = "😬";
     label = "Rough Patch";
-    description = "It's a rebuilding moment. We believe.";
+    description = "It's a rebuilding moment. We believe. (Barely.)";
   } else {
     emoji = "😐";
     label = "Steady";

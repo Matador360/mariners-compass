@@ -44,7 +44,7 @@ function RevealSection({ children, className, delay = 0 }: { children: React.Rea
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const BIG_STATS = [
-  { value: 48, suffix: " yrs", label: "Years of Suffering", decimals: 0 },
+  { value: 49, suffix: " yrs", label: "Years of Suffering", decimals: 0 },
   { value: 0, suffix: "", label: "World Series Appearances", decimals: 0 },
   { value: 116, suffix: " W", label: "Best Season (2001)", decimals: 0 },
   { value: 262, suffix: " H", label: "Ichiro's 2004 Record", decimals: 0 },
@@ -356,9 +356,9 @@ const WTF_FACTS = [
   "Ichiro's 262 hits in 2004 broke a record set by George Sisler in 1920 — 84 years earlier. The team around him lost 99 games that year.",
   "The 2001 Mariners won 116 games — tying the 1906 Cubs for the all-time record. They still didn't make the World Series. The Yankees beat them. Classic.",
   "Randy Johnson killed a bird mid-pitch during a spring training game in 2001. The bird vaporized on contact. The pitch was ruled a ball.",
-  "Julio Rodríguez (born December 29, 2000) is younger than the Mariners' last playoff appearance before 2022, which was in 2001.",
+  "Julio Rodríguez was less than a year old the last time the Mariners made the playoffs before 2022 — which was in 2001. The entire drought is essentially his conscious lifetime.",
   "Felix Hernández threw his perfect game for a team that went 75-87. The King's Court section wore yellow in the bleachers and held up a giant 'K' card for every strikeout. It remains one of the most iconic baseball atmospheres ever filmed.",
-  "The Mariners have never appeared in a World Series in 48 years of existence — one of only two franchises (with the Rockies) to have never played in one.",
+  "The Mariners have never appeared in a World Series in 49 years of existence — the only current MLB franchise that has never played in one. The Rockies at least made it in 2007.",
   "Griffey's signature 'Ken Griffey Jr. Presents Major League Baseball' on Sega was the #1 selling sports game of 1994. The man was a franchise within a franchise.",
 ];
 
@@ -444,7 +444,7 @@ export default function HistoryPage() {
             Est. 1977 · Seattle, WA
           </div>
           <h1 className="text-4xl sm:text-6xl font-black text-primary leading-none tracking-tighter">
-            48 Years.
+            49 Years.
             <br />
             <span className="text-teal">0 World Series.</span>
             <br />

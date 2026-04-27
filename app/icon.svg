@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" fill="none">
+  <!-- Navy background with slight rounding -->
+  <rect width="52" height="52" rx="11" fill="#0C2C56"/>
+  <!-- Trident in Mariners teal — centered from original 36x52 viewBox (+8 x-offset) -->
+  <!-- Left prong -->
+  <path d="M14 2 L14 13 Q14 18 26 20" stroke="#00A3A3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Right prong -->
+  <path d="M38 2 L38 13 Q38 18 26 20" stroke="#00A3A3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Center prong -->
+  <path d="M26 2 L26 20" stroke="#00A3A3" stroke-width="3" stroke-linecap="round"/>
+  <!-- Shaft -->
+  <path d="M26 20 L26 50" stroke="#00A3A3" stroke-width="3" stroke-linecap="round"/>
+  <!-- Cross guard -->
+  <path d="M18 39 Q22 37 26 38 Q30 37 34 39" stroke="#00A3A3" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Diamond tips -->
+  <polygon points="14,2 16.5,5 14,8 11.5,5" fill="#00A3A3"/>
+  <polygon points="38,2 40.5,5 38,8 35.5,5" fill="#00A3A3"/>
+  <polygon points="26,1 28.5,4 26,7 23.5,4" fill="#00A3A3"/>
+</svg>

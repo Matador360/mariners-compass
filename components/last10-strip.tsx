@@ -45,7 +45,7 @@ export function Last10Strip({ games, teamId = 136, className }: Last10StripProps
                 {won ? "W" : "L"}
               </div>
               {/* Tooltip */}
-              <div className="tooltip-content absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 bg-elevated border border-border-accent rounded-lg p-2.5 text-center min-w-[100px] shadow-xl">
+              <div className="tooltip-content absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 bg-elevated border border-border-accent rounded-lg p-2.5 text-center min-w-[110px] shadow-xl">
                 <p className="text-[10px] text-muted">{formatDate(game.gameDate)}</p>
                 <p className={cn("text-sm font-bold", won ? "text-win" : "text-loss")}>
                   {ourScore}–{theirScore}
@@ -53,8 +53,10 @@ export function Last10Strip({ games, teamId = 136, className }: Last10StripProps
                 <p className="text-[10px] text-secondary">
                   vs {isHome ? game.teams.away.team.name : game.teams.home.team.name}
                 </p>
-                <p className={cn("text-[10px] font-medium", diff > 0 ? "text-win" : "text-loss")}>
-                  {diff > 0 ? "+" : ""}{diff} run{Math.abs(diff) !== 1 ? "s" : ""}
+                <p className={cn("text-[10px] font-medium italic mt-0.5", diff > 0 ? "text-win" : "text-loss")}>
+                  {won
+                    ? diff >= 5 ? "Destroyed them" : diff <= 2 ? "Butt-clencher W" : "Solid W"
+                    : diff <= -5 ? "We don't talk about this one" : diff >= -2 ? "Gut punch" : "Tough loss"}
                 </p>
               </div>
             </div>

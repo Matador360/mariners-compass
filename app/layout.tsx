@@ -1,34 +1,52 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
 import { CompassBg } from "@/components/compass-bg";
 import { EasterEggController } from "@/components/easter-eggs";
 import { fetchALWestStandings, fetchSchedule, computeMarinersMood } from "@/lib/mlb-api";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://mariners-compass.vercel.app"),
   title: {
-    default: "The Trident — Seattle Mariners Portal",
-    template: "%s · The Trident",
+    default: "The Trident — Seattle Mariners Stats Portal",
+    template: "%s — The Trident",
   },
   description:
-    "A premium Seattle Mariners stats portal. Live games, team stats, roster, and player analytics. Built for the true M's fan.",
-  keywords: ["Seattle Mariners", "MLB", "baseball", "stats", "The Trident"],
-  openGraph: {
-    title: "The Trident — Seattle Mariners Portal",
-    description: "Premium stats portal for Seattle Mariners fans.",
-    type: "website",
+    "Live stats, power rankings, scouting reports, and salty commentary for Seattle Mariners fans. Built by fans, for fans.",
+  keywords: ["Seattle Mariners", "MLB", "baseball", "stats", "The Trident", "M's", "power rankings", "roster"],
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
   },
+  openGraph: {
+    siteName: "The Trident",
+    title: "The Trident — Seattle Mariners Stats Portal",
+    description: "Live stats, power rankings, scouting reports, and salty commentary for Seattle Mariners fans.",
+    type: "website",
+    url: "https://mariners-compass.vercel.app",
+  },
+  twitter: {
+    card: "summary",
+    title: "The Trident — Seattle Mariners Stats Portal",
+    description: "Live stats, power rankings, scouting reports, and salty commentary for Seattle Mariners fans.",
+  },
+  themeColor: "#0C2C56",
 };
 
 export default async function RootLayout({
@@ -52,29 +70,38 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col" style={{ background: "var(--bg-deep)", color: "var(--text-primary)" }}>
+      <body className="min-h-full flex flex-col">
         <CompassBg />
         <Navigation mood={moodEmoji} />
-        <main className="flex-1 container-trident py-6 pb-32 md:pb-8 relative z-10">
+        <main className="flex-1 container-trident pt-6 pb-nav relative z-10">
           {children}
         </main>
         <EasterEggController winStreak={winStreak} />
-        <footer className="hidden md:block border-t border-border py-4 relative z-10">
-          <p className="container-trident text-[11px] text-muted text-center">
-            The Trident · Seattle Mariners Stats Portal · Data from{" "}
-            <a
-              href="https://statsapi.mlb.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-teal hover:underline"
-            >
-              MLB Stats API
-            </a>{" "}
-            · Fan project, not affiliated with MLB or the Mariners
-          </p>
+        <footer className="hidden md:block py-6 relative z-10">
+          <div className="container-trident flex items-center justify-between">
+            <div className="flex items-center gap-2 text-muted/50">
+              <span className="text-teal/40">⚓</span>
+              <span className="text-[10px] tracking-[0.1em] uppercase font-medium">The Trident</span>
+            </div>
+            <p className="text-[10px] text-muted/40 text-center">
+              Fan project · Data from{" "}
+              <a
+                href="https://statsapi.mlb.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-teal/60 hover:text-teal transition-colors"
+              >
+                MLB Stats API
+              </a>
+              {" "}· Not affiliated with MLB or the Mariners
+            </p>
+            <div className="text-[10px] text-muted/30 tracking-wider uppercase">
+              SEA · {new Date().getFullYear()}
+            </div>
+          </div>
         </footer>
       </body>
     </html>

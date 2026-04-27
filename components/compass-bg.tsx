@@ -1,91 +1,128 @@
 export function CompassBg() {
-  const cardinalAngles = [0, 90, 180, 270];
-  const ordinalAngles = [45, 135, 225, 315];
-  const subAngles = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5];
   const cx = 200;
   const cy = 200;
-
-  const lineEnd = (angle: number, len: number) => ({
-    x: cx + Math.cos(((angle - 90) * Math.PI) / 180) * len,
-    y: cy + Math.sin(((angle - 90) * Math.PI) / 180) * len,
+  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
+  const pt = (angle: number, r: number) => ({
+    x: cx + Math.cos(toRad(angle)) * r,
+    y: cy + Math.sin(toRad(angle)) * r,
   });
 
+  // 8-pointed Mariners-style star: 4 long cardinal points + 4 short ordinal points
+  // Alternating outer radii, shared inner waist radius
+  const longR = 183;   // N/S/E/W tips
+  const shortR = 108;  // NE/SE/SW/NW tips
+  const waistR = 50;   // inner concave radius
+  // 16 polygon vertices: outer(0°), inner(22.5°), outer(45°), inner(67.5°), ...
+  const starPoints = Array.from({ length: 16 }, (_, i) => {
+    const angle = i * 22.5;
+    const isOuter = i % 2 === 0;
+    const isCardinal = i % 4 === 0;
+    const r = isOuter ? (isCardinal ? longR : shortR) : waistR;
+    const p = pt(angle, r);
+    return `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+  }).join(" ");
+
   return (
-    <div
-      className="fixed inset-0 pointer-events-none overflow-hidden"
-      aria-hidden="true"
-    >
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      {/* Aurora glow layers */}
+      <div className="aurora-layer aurora-1" />
+      <div className="aurora-layer aurora-2" />
+      <div className="aurora-layer aurora-3" />
+
+      {/* Topographic grid overlay */}
       <svg
-        viewBox="0 0 400 400"
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.025] text-teal"
-        style={{ width: "min(100vh, 100vw)", height: "min(100vh, 100vw)" }}
+        className="absolute inset-0 w-full h-full opacity-[0.028]"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ color: "var(--accent-teal)" }}
       >
-        {/* Cardinal lines — N/S/E/W, longest */}
-        {cardinalAngles.map((a) => {
-          const e = lineEnd(a, 185);
-          return (
-            <line
-              key={`c-${a}`}
-              x1={cx}
-              y1={cy}
-              x2={e.x}
-              y2={e.y}
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-          );
-        })}
-        {/* Ordinal lines — NE/SE/SW/NW */}
-        {ordinalAngles.map((a) => {
-          const e = lineEnd(a, 145);
-          return (
-            <line
-              key={`o-${a}`}
-              x1={cx}
-              y1={cy}
-              x2={e.x}
-              y2={e.y}
-              stroke="currentColor"
-              strokeWidth="1"
-            />
-          );
-        })}
-        {/* Sub-ordinal lines */}
-        {subAngles.map((a) => {
-          const e = lineEnd(a, 105);
-          return (
-            <line
-              key={`s-${a}`}
-              x1={cx}
-              y1={cy}
-              x2={e.x}
-              y2={e.y}
-              stroke="currentColor"
-              strokeWidth="0.5"
-            />
-          );
-        })}
-        {/* Concentric rings */}
-        {[50, 100, 150, 185].map((r) => (
-          <circle
-            key={r}
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={r === 185 ? 1.5 : 0.75}
-          />
-        ))}
-        {/* Cardinal labels */}
-        <text x={cx} y={8} textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor">N</text>
-        <text x={cx} y={396} textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor">S</text>
-        <text x={394} y={205} textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor">E</text>
-        <text x={6} y={205} textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor">W</text>
-        {/* Center dot */}
-        <circle cx={cx} cy={cy} r={4} fill="currentColor" />
-        <circle cx={cx} cy={cy} r={8} fill="none" stroke="currentColor" strokeWidth="1" />
+        <defs>
+          <pattern id="topo-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#topo-grid)" />
       </svg>
+
+      {/* Compass rose — slow 90s rotation, Mariners 8-pointed star */}
+      <div
+        className="absolute top-1/2 left-1/2"
+        style={{
+          transform: "translate(-50%, -50%)",
+          width: "min(115vmin, 1100px)",
+          height: "min(115vmin, 1100px)",
+        }}
+      >
+        <div style={{ width: "100%", height: "100%", animation: "compass-slow-rotate 90s linear infinite" }}>
+          <svg
+            viewBox="0 0 400 400"
+            width="100%"
+            height="100%"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ opacity: 0.09, color: "var(--accent-teal)" }}
+          >
+            {/* Outer ring */}
+            <circle cx={cx} cy={cy} r={192} stroke="currentColor" strokeWidth="1.2" />
+            {/* Inner accent ring */}
+            <circle cx={cx} cy={cy} r={155} stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 6" />
+
+            {/* 8-pointed star — the Mariners compass rose */}
+            <polygon
+              points={starPoints}
+              fill="currentColor"
+              fillOpacity="0.7"
+              stroke="currentColor"
+              strokeWidth="0.8"
+              strokeLinejoin="round"
+            />
+
+            {/* Center — solid circle with cutout */}
+            <circle cx={cx} cy={cy} r={14} fill="currentColor" fillOpacity="0.9" />
+            <circle cx={cx} cy={cy} r={7} fill="var(--bg-deep)" />
+
+            {/* Cardinal labels */}
+            {[
+              { label: "N", x: cx,       y: 7,       anchor: "middle" },
+              { label: "S", x: cx,       y: 396,     anchor: "middle" },
+              { label: "E", x: 397,      y: cy + 4,  anchor: "end"    },
+              { label: "W", x: 3,        y: cy + 4,  anchor: "start"  },
+            ].map(({ label, x, y, anchor }) => (
+              <text
+                key={label}
+                x={x} y={y}
+                textAnchor={anchor as "middle" | "end" | "start"}
+                fontSize="12"
+                fontWeight="800"
+                fontFamily="var(--font-grotesk, sans-serif)"
+                fill="currentColor"
+                letterSpacing="2"
+              >
+                {label}
+              </text>
+            ))}
+
+            {/* 32 degree tick marks on outer ring */}
+            {Array.from({ length: 32 }, (_, i) => {
+              const angle = i * (360 / 32);
+              const isCardinal = i % 8 === 0;
+              const isOrdinal = i % 4 === 0 && !isCardinal;
+              const outerR = 192;
+              const innerR = isCardinal ? 178 : isOrdinal ? 182 : 187;
+              const s = pt(angle, outerR);
+              const e = pt(angle, innerR);
+              return (
+                <line
+                  key={i}
+                  x1={s.x.toFixed(1)} y1={s.y.toFixed(1)}
+                  x2={e.x.toFixed(1)} y2={e.y.toFixed(1)}
+                  stroke="currentColor"
+                  strokeWidth={isCardinal ? 1.4 : 0.7}
+                />
+              );
+            })}
+          </svg>
+        </div>
+      </div>
     </div>
   );
 }

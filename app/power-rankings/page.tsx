@@ -72,9 +72,10 @@ function HotMeter({ score }: { score: number }) {
 }
 
 async function fetchPowerRankings(): Promise<RankedPlayer[]> {
+  const SEASON = new Date().getFullYear();
   const [rosterRes, statsRes] = await Promise.allSettled([
-    fetch("https://statsapi.mlb.com/api/v1/teams/136/roster?rosterType=active&season=2025"),
-    fetch("https://statsapi.mlb.com/api/v1/teams/136/stats?stats=season&group=hitting,pitching&season=2025"),
+    fetch(`https://statsapi.mlb.com/api/v1/teams/136/roster?rosterType=active&season=${SEASON}`),
+    fetch(`https://statsapi.mlb.com/api/v1/teams/136/stats?stats=season&group=hitting,pitching&season=${SEASON}`),
   ]);
 
   const roster =
@@ -88,7 +89,7 @@ async function fetchPowerRankings(): Promise<RankedPlayer[]> {
     rosterList.slice(0, 30).map(async (p: { person: { id: number; fullName: string }; position: { abbreviation: string } }, idx: number) => {
       try {
         const logRes = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${p.person.id}/stats?stats=gameLog&group=hitting,pitching&season=2025&limit=15`
+          `https://statsapi.mlb.com/api/v1/people/${p.person.id}/stats?stats=gameLog&group=hitting,pitching&season=${SEASON}&limit=15`
         );
         const logData = await logRes.json();
 
