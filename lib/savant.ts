@@ -299,6 +299,57 @@ export async function fetchSprintSpeed(
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * Per-batter Statcast summary computed directly from in-play pitches.
+ *
+ * Rationale: Savant's expected_statistics leaderboard only includes
+ * qualified batters, so early-season or part-time players resolve to
+ * `expected = null` even though their per-batter pitch CSV is full. The
+ * Statcast tab used to render those tiles as "—". This helper provides
+ * a fallback so we can show real numbers from the same data the spray
+ * chart already uses.
+ *
+ * Definitions match Statcast's published thresholds:
+ * - Hard Hit: launchSpeed >= 95 mph
+ * - Barrel (approximation): launchSpeed >= 98 mph AND 26° <= launchAngle <= 30°
+ *   (Real definition is a curve that widens with EV — this simple form
+ *    matches at the threshold and is good enough for fallback display.)
+ */
+export interface BatterStatcastSummary {
+  avgExitVelo: number;
+  hardHitPct: number;
+  brlPct: number;
+  battedBalls: number;
+}
+
+export function computeBatterStatcastSummary(
+  pitches: SavantPitch[],
+): BatterStatcastSummary | null {
+  const inPlay = pitches.filter(
+    (p): p is SavantPitch & { launchSpeed: number } =>
+      p.type === 'X' && typeof p.launchSpeed === 'number',
+  );
+  if (inPlay.length === 0) return null;
+
+  const sumEV = inPlay.reduce((s, p) => s + p.launchSpeed, 0);
+  const avgExitVelo = sumEV / inPlay.length;
+  const hardHits = inPlay.filter(p => p.launchSpeed >= 95).length;
+  const barrels = inPlay.filter(
+    p =>
+      p.launchSpeed >= 98 &&
+      typeof p.launchAngle === 'number' &&
+      p.launchAngle >= 26 &&
+      p.launchAngle <= 30,
+  ).length;
+
+  return {
+    avgExitVelo,
+    hardHitPct: (hardHits / inPlay.length) * 100,
+    brlPct: (barrels / inPlay.length) * 100,
+    battedBalls: inPlay.length,
+  };
+}
+
 export function batterSprayChartData(pitches: SavantPitch[]): Array<{
   hcX: number;
   hcY: number;
