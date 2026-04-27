@@ -6,6 +6,9 @@ import Link from "next/link";
 import { cn, formatGameTime, teamLogoUrl } from "@/lib/utils";
 import { calcWinProb } from "@/lib/predictions";
 import type { MLBGame } from "@/types/mlb";
+import { SosStrip, type SosGame } from "@/components/sos-strip";
+import { H2HRibbon } from "@/components/h2h-ribbon";
+import { PitcherMatchupCard } from "@/components/pitcher-matchup-card";
 
 const TEAM_ID = 136;
 
@@ -169,6 +172,31 @@ export default function SchedulePage() {
     });
   }, [games, selectedMonth, selectedYear]);
 
+  const upcomingSos = useMemo<SosGame[]>(() => {
+    return games
+      .filter((g) => g.status.abstractGameState === "Preview")
+      .sort((a, b) => a.gameDate.localeCompare(b.gameDate))
+      .slice(0, 20)
+      .map((g) => {
+        const isHome = g.teams.home.team.id === TEAM_ID;
+        const them = isHome ? g.teams.away : g.teams.home;
+        return {
+          gamePk: g.gamePk,
+          date: g.gameDate.split("T")[0],
+          opponentId: them.team.id,
+          opponentAbbrev: them.team.abbreviation ?? them.team.teamName ?? "???",
+          opponentLogoUrl: `https://www.mlbstatic.com/team-logos/${them.team.id}.svg`,
+          opponentWinPct: parseFloat(them.leagueRecord?.pct ?? "0.500"),
+          isHome,
+        };
+      });
+  }, [games]);
+
+  function handleSosSelect(gamePk: number) {
+    const g = games.find((x) => x.gamePk === gamePk);
+    if (g) setSelectedGame(g);
+  }
+
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
   const monthName = new Date(selectedYear, selectedMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const seasonMonths = [2, 3, 4, 5, 6, 7, 8, 9];
@@ -194,6 +222,15 @@ export default function SchedulePage() {
           </button>
         </div>
       </div>
+
+      {/* Strength-of-schedule strip */}
+      {!loading && (
+        <SosStrip
+          upcoming={upcomingSos}
+          selectedGamePk={selectedGame?.gamePk}
+          onSelect={handleSosSelect}
+        />
+      )}
 
       {/* Month navigator */}
       <div className="flex items-center gap-3">
@@ -243,7 +280,7 @@ export default function SchedulePage() {
 
       {/* Game detail panel */}
       {selectedGame && (
-        <GameDetailPanel game={selectedGame} onClose={() => setSelectedGame(null)} />
+        <GameDetailPanel game={selectedGame} onClose={() => setSelectedGame(null)} allGames={games} />
       )}
     </div>
   );
@@ -552,10 +589,42 @@ function CalendarView({
 
 // ─── Game detail panel ────────────────────────────────────────────────────────
 
-function GameDetailPanel({ game, onClose }: { game: MLBGame; onClose: () => void; }) {
+function GameDetailPanel({ game, onClose, allGames = [] }: { game: MLBGame; onClose: () => void; allGames?: MLBGame[] }) {
   const isHome   = game.teams.home.team.id === TEAM_ID;
   const us       = isHome ? game.teams.home : game.teams.away;
   const them     = isHome ? game.teams.away : game.teams.home;
+  const oppId    = them.team.id;
+  const oppAbbrev = them.team.abbreviation ?? them.team.teamName ?? "???";
+  const season   = new Date().getFullYear();
+
+  // H2H: all finished games vs this opponent
+  const vsFinished = allGames.filter((g) => {
+    const isH = g.teams.home.team.id === TEAM_ID;
+    const opp = isH ? g.teams.away : g.teams.home;
+    return opp.team.id === oppId && g.status.abstractGameState === "Final";
+  });
+  const vsWins = vsFinished.filter((g) => {
+    const isH = g.teams.home.team.id === TEAM_ID;
+    return isH ? !!g.teams.home.isWinner : !!g.teams.away.isWinner;
+  }).length;
+  const vsLosses = vsFinished.length - vsWins;
+  const lastMeetingGame = [...vsFinished].sort((a, b) => b.gameDate.localeCompare(a.gameDate))[0];
+  const lastMeeting = lastMeetingGame ? (() => {
+    const isH = lastMeetingGame.teams.home.team.id === TEAM_ID;
+    const myTeam = isH ? lastMeetingGame.teams.home : lastMeetingGame.teams.away;
+    const oppTeam = isH ? lastMeetingGame.teams.away : lastMeetingGame.teams.home;
+    return {
+      date: lastMeetingGame.gameDate.split("T")[0],
+      gamePk: lastMeetingGame.gamePk,
+      result: myTeam.isWinner ? "W" as const : "L" as const,
+      score: `${myTeam.score ?? 0}-${oppTeam.score ?? 0}`,
+    };
+  })() : undefined;
+  const remainingGames = allGames.filter((g) => {
+    const isH = g.teams.home.team.id === TEAM_ID;
+    const opp = isH ? g.teams.away : g.teams.home;
+    return opp.team.id === oppId && g.status.abstractGameState === "Preview";
+  }).length;
   const isFinal  = game.status.abstractGameState === "Final";
   const isLive   = game.status.abstractGameState === "Live";
   const isPreview = game.status.abstractGameState === "Preview";
@@ -621,6 +690,15 @@ function GameDetailPanel({ game, onClose }: { game: MLBGame; onClose: () => void
           </div>
         </div>
 
+        {/* ── H2H ribbon ── */}
+        <H2HRibbon
+          season={season}
+          vsOpponentAbbrev={oppAbbrev}
+          thisSeasonRecord={{ wins: vsWins, losses: vsLosses }}
+          lastMeeting={lastMeeting}
+          remainingGames={remainingGames}
+        />
+
         {/* ── Trident's Take ── */}
         {isPreview && (
           <div className="space-y-2 p-3 rounded-xl bg-teal/5 border border-teal/20">
@@ -637,6 +715,16 @@ function GameDetailPanel({ game, onClose }: { game: MLBGame; onClose: () => void
             </div>
             <p className="text-xs text-secondary italic">&ldquo;{take}&rdquo;</p>
           </div>
+        )}
+
+        {/* ── Pitcher matchup card (preview games only) ── */}
+        {isPreview && (
+          <PitcherMatchupCard
+            gamePk={game.gamePk}
+            isHome={isHome}
+            awayTeamAbbrev={game.teams.away.team.abbreviation ?? game.teams.away.team.teamName ?? "AWY"}
+            homeTeamAbbrev={game.teams.home.team.abbreviation ?? game.teams.home.team.teamName ?? "HME"}
+          />
         )}
 
         {/* ── Pre-game forecast (past games) ── */}
