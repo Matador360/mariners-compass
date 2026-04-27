@@ -3,16 +3,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, List, Grid3X3, X } from "lucide-react";
 import { cn, formatGameTime, teamLogoUrl } from "@/lib/utils";
+import { calcWinProb } from "@/lib/predictions";
 import type { MLBGame } from "@/types/mlb";
 
 const TEAM_ID = 136;
-
-// ─── Win probability model ────────────────────────────────────────────────────
-
-function calcWinProb(seaWinPct: number, oppWinPct: number, seaIsHome: boolean): number {
-  const base = 0.5 + (seaWinPct - oppWinPct) * 0.75 + (seaIsHome ? 0.04 : -0.04);
-  return Math.max(0.15, Math.min(0.85, base));
-}
 
 type ConfKey = "lock" | "lean-sea" | "flip" | "lean-opp" | "pray";
 
