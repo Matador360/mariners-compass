@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, List, Grid3X3, X } from "lucide-react";
+import Link from "next/link";
 import { cn, formatGameTime, teamLogoUrl } from "@/lib/utils";
 import { calcWinProb } from "@/lib/predictions";
 import type { MLBGame } from "@/types/mlb";
@@ -377,7 +378,8 @@ function GameRow({
   const take = getTake(prob, seaPitcher, gameIndex);
 
   return (
-    <button
+    <Link
+      href={`/game/${game.gamePk}`}
       onClick={onClick}
       className={cn(
         "w-full trident-card p-3 flex flex-col text-left transition-all",
@@ -467,7 +469,7 @@ function GameRow({
            weWon && prob >= 0.60 ? " — chalk result." : "."}
         </p>
       )}
-    </button>
+    </Link>
   );
 }
 
@@ -521,10 +523,11 @@ function CalendarView({
                       const weWonG = isFinalG && usG.isWinner;
                       const isSelectedG = selectedGame?.gamePk === g.gamePk;
                       return (
-                        <button
+                        <Link
                           key={g.gamePk}
+                          href={`/game/${g.gamePk}`}
                           onClick={() => onSelect(g)}
-                          className={cn("w-full text-left text-[9px] px-1.5 py-0.5 rounded font-medium truncate transition-colors",
+                          className={cn("block w-full text-left text-[9px] px-1.5 py-0.5 rounded font-medium truncate transition-colors",
                             isSelectedG && "ring-1 ring-teal",
                             isFinalG ? weWonG ? "bg-win/15 text-win hover:bg-win/25" : "bg-loss/15 text-loss hover:bg-loss/25"
                                       : "bg-teal/10 text-teal hover:bg-teal/20"
@@ -533,7 +536,7 @@ function CalendarView({
                           {isFinalG
                             ? `${weWonG ? "W" : "L"} ${usG.score}–${themG.score}`
                             : `${isHomeG ? "vs" : "@"} ${themG.team.abbreviation ?? themG.team.teamName.slice(0, 3)}`}
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>

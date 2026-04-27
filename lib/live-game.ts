@@ -109,6 +109,8 @@ export interface ParsedLiveGame {
   attendance?: number;
   umpires: Array<{ id: number; fullName: string; officialType: string }>;
   decisions?: { winner?: PersonRef; loser?: PersonRef; save?: PersonRef };
+  venue?: { id: number; name: string };
+  probablePitchers?: { home?: PersonRef; away?: PersonRef };
   linescore: Linescore;
   allPlays: ParsedPlay[];
   scoringPlayIndices: number[];
@@ -243,6 +245,17 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
   // Attendance
   const gameInfo = ro(gd.gameInfo);
   const attendance = gameInfo.attendance != null ? Number(gameInfo.attendance) : undefined;
+
+  // Venue
+  const venueRaw = gd.venue != null ? ro(gd.venue) : null;
+  const venue = venueRaw?.id != null ? { id: Number(venueRaw.id), name: String(venueRaw.name ?? '') } : undefined;
+
+  // Probable pitchers
+  const ppRaw = gd.probablePitchers != null ? ro(gd.probablePitchers) : null;
+  const probablePitchers = ppRaw ? {
+    home: parsePersonRef(ppRaw.home),
+    away: parsePersonRef(ppRaw.away),
+  } : undefined;
 
   // Umpires
   const bs = ro(ld.boxscore);
@@ -465,6 +478,8 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
     attendance,
     umpires,
     decisions,
+    venue,
+    probablePitchers,
     linescore,
     allPlays,
     scoringPlayIndices,
