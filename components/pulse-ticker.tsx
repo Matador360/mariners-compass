@@ -64,14 +64,7 @@ export function PulseTicker({ items, speed = 60, className }: PulseTickerProps) 
       <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-surface to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface to-transparent z-10 pointer-events-none" />
 
-      {/* THE PULSE label */}
-      <div className="absolute left-0 top-0 bottom-0 flex items-center px-3 z-20 bg-teal/10 border-r border-teal/20">
-        <span className="text-[9px] font-black uppercase tracking-widest text-teal whitespace-nowrap">
-          THE PULSE
-        </span>
-      </div>
-
-      <div className="pl-20 py-2 overflow-hidden">
+      <div className="py-2 overflow-hidden">
         <div
           ref={trackRef}
           className="flex items-center gap-8 whitespace-nowrap"
