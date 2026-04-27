@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+html { scroll-behavior: smooth; }
+
 /* ─── Mariners Trident Design System ─────────────────────────────────────── */
 
 :root {

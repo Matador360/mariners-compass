@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, BarChart2, Users, Zap, Swords } from "lucide-react";
+import { LayoutDashboard, Calendar, BarChart2, Users, Zap, Swords, BookOpen, Sprout } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TridentLogo } from "./trident-logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -14,14 +14,16 @@ const NAV_ITEMS = [
   { href: "/roster", label: "Roster", icon: Users },
   { href: "/power-rankings", label: "Power Rankings", icon: Zap },
   { href: "/compare", label: "Compare", icon: Swords },
+  { href: "/history", label: "History", icon: BookOpen },
+  { href: "/prospects", label: "Prospects", icon: Sprout },
 ];
 
 const MOBILE_NAV = [
   { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/roster", label: "Roster", icon: Users },
-  { href: "/power-rankings", label: "Rankings", icon: Zap },
-  { href: "/compare", label: "Compare", icon: Swords },
+  { href: "/prospects", label: "Prospects", icon: Sprout },
+  { href: "/history", label: "History", icon: BookOpen },
 ];
 
 export function Navigation({ mood }: { mood?: string }) {

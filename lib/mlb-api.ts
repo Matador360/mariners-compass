@@ -246,9 +246,18 @@ export async function computeMarinersMood(
     else losses++;
   }
 
-  // Get current streak from standings if available
-  const streakCode =
-    wins > losses ? `W${wins}` : losses > wins ? `L${losses}` : "—";
+  // Compute actual consecutive win/loss streak from most recent game backwards
+  let streakCount = 0;
+  let streakDir: "W" | "L" | null = null;
+  for (const g of finished) {
+    const isMariners = g.teams.home.team.id === TEAM_ID;
+    const us = isMariners ? g.teams.home : g.teams.away;
+    const dir = us.isWinner ? "W" : "L";
+    if (streakDir === null) { streakDir = dir; streakCount = 1; }
+    else if (dir === streakDir) { streakCount++; }
+    else break;
+  }
+  const streakCode = streakDir ? `${streakDir}${streakCount}` : "—";
 
   let emoji: MarinersMood["emoji"];
   let label: string;

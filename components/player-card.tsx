@@ -100,20 +100,24 @@ export function PlayerCard({
         </div>
 
         {/* Stats */}
-        {(primaryStat || secondaryStat || tertiaryStat) && (
+        {(primaryStat || secondaryStat || tertiaryStat) ? (
           <div className="flex items-start justify-around border-t border-border pt-3 gap-1">
             {[primaryStat, secondaryStat, tertiaryStat]
               .filter(Boolean)
               .map((s) => (
                 <div key={s!.label} className="flex flex-col items-center gap-0.5">
                   <span className="text-base font-bold stat-number text-primary tabular-nums">
-                    {s!.value}
+                    {s!.value ?? "—"}
                   </span>
                   <span className="text-[9px] uppercase tracking-widest text-muted font-medium">
                     {s!.label}
                   </span>
                 </div>
               ))}
+          </div>
+        ) : (
+          <div className="border-t border-border pt-3">
+            <p className="text-[10px] text-muted text-center italic">No stats yet</p>
           </div>
         )}
       </div>

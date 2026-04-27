@@ -169,40 +169,103 @@ function ListView({
     );
   }
 
-  // Group by week
-  const grouped: Record<string, MLBGame[]> = {};
-  for (const g of games) {
-    const d = new Date(g.gameDate);
-    const weekStart = new Date(d);
-    weekStart.setDate(d.getDate() - d.getDay());
-    const key = weekStart.toISOString().split("T")[0];
-    (grouped[key] = grouped[key] ?? []).push(g);
+  // Group by series (consecutive games vs same opponent)
+  interface SeriesGroup {
+    opponentId: number;
+    opponentName: string;
+    opponentAbbr: string;
+    isHome: boolean;
+    games: MLBGame[];
+  }
+
+  const sorted = [...games].sort((a, b) => a.gameDate.localeCompare(b.gameDate));
+  const seriesList: SeriesGroup[] = [];
+  let cur: SeriesGroup | null = null;
+
+  for (const g of sorted) {
+    const isHome = g.teams.home.team.id === TEAM_ID;
+    const opp = isHome ? g.teams.away : g.teams.home;
+    const oppId = opp.team.id;
+    if (!cur || cur.opponentId !== oppId || cur.isHome !== isHome) {
+      cur = {
+        opponentId: oppId,
+        opponentName: opp.team.name,
+        opponentAbbr: opp.team.abbreviation ?? opp.team.teamName?.slice(0, 3) ?? "???",
+        isHome,
+        games: [],
+      };
+      seriesList.push(cur);
+    }
+    cur.games.push(g);
   }
 
   return (
-    <div className="space-y-4">
-      {Object.entries(grouped).map(([weekKey, weekGames]) => (
-        <div key={weekKey}>
-          <p className="text-[10px] uppercase tracking-widest text-muted mb-2 font-semibold">
-            Week of {formatDate(weekKey, { month: "long", day: "numeric" })}
-          </p>
-          <div className="space-y-1.5">
-            {weekGames.map((g) => (
-              <GameRow
-                key={g.gamePk}
-                game={g}
-                isSelected={selectedGame?.gamePk === g.gamePk}
-                isToday={
-                  new Date(g.gameDate).toLocaleDateString("en-US", {
-                    timeZone: "America/Los_Angeles",
-                  }) === today
-                }
-                onClick={() => onSelect(g)}
+    <div className="space-y-5">
+      {seriesList.map((series, si) => {
+        const firstGame = series.games[0];
+        const lastGame = series.games[series.games.length - 1];
+        const firstDate = new Date(firstGame.gameDate);
+        const lastDate = new Date(lastGame.gameDate);
+        const finishedGames = series.games.filter((g) => g.status.abstractGameState === "Final");
+        const seriesWins = finishedGames.filter((g) => {
+          const us = g.teams.home.team.id === TEAM_ID ? g.teams.home : g.teams.away;
+          return us.isWinner;
+        }).length;
+        const seriesLosses = finishedGames.length - seriesWins;
+        const remaining = series.games.length - finishedGames.length;
+
+        const startStr = firstDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Los_Angeles" });
+        const endStr = series.games.length > 1
+          ? lastDate.toLocaleDateString("en-US", { day: "numeric", timeZone: "America/Los_Angeles" })
+          : null;
+        const dateRange = endStr ? `${startStr}–${endStr}` : startStr;
+
+        return (
+          <div key={si}>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://www.mlbstatic.com/team-logos/${series.opponentId}.svg`}
+                alt={series.opponentName}
+                width={18}
+                height={18}
+                className="w-4.5 h-4.5 object-contain opacity-75"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-            ))}
+              <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
+                <span className="text-secondary">{series.isHome ? "vs" : "@"} {series.opponentAbbr}</span>
+                <span className="ml-2">· {dateRange} · {series.games.length}G</span>
+              </p>
+              {finishedGames.length > 0 && (
+                <span className={cn(
+                  "text-[10px] font-black px-2 py-0.5 rounded-full ml-auto",
+                  seriesWins > seriesLosses ? "bg-win/10 text-win" :
+                  seriesLosses > seriesWins ? "bg-loss/10 text-loss" :
+                  "bg-surface-2 text-muted"
+                )}>
+                  {seriesWins}–{seriesLosses}
+                  {remaining > 0 && <span className="font-normal opacity-60"> ({remaining} left)</span>}
+                </span>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {series.games.map((g) => (
+                <GameRow
+                  key={g.gamePk}
+                  game={g}
+                  isSelected={selectedGame?.gamePk === g.gamePk}
+                  isToday={
+                    new Date(g.gameDate).toLocaleDateString("en-US", {
+                      timeZone: "America/Los_Angeles",
+                    }) === today
+                  }
+                  onClick={() => onSelect(g)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

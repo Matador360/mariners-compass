@@ -7,6 +7,7 @@ import { PulseTicker, buildPulseItems } from "@/components/pulse-ticker";
 import { StreakTracker, computeStreaks } from "@/components/streak-tracker";
 import { OutlierCallout, TeamOutlier } from "@/components/outlier-callout";
 import { CountingNumber } from "@/components/counting-number";
+import { StatClickable } from "@/components/stat-explainer";
 import { Sparkline } from "@/components/sparkline";
 import { GameCard } from "@/components/game-card";
 import { Last10Strip } from "@/components/last10-strip";
@@ -77,7 +78,7 @@ async function fetchRosterGameLogs() {
   const roster = rosterData.roster ?? [];
 
   const logs = await Promise.allSettled(
-    roster.slice(0, 28).map(async (p: { person: { id: number; fullName: string }; position: { abbreviation: string } }) => {
+    roster.slice(0, 35).map(async (p: { person: { id: number; fullName: string }; position: { abbreviation: string } }) => {
       const isPitcher = ["SP","RP","P"].includes(p.position.abbreviation);
       const logRes = await fetch(
         `${BASE}/people/${p.person.id}/stats?stats=gameLog&group=${isPitcher ? "pitching" : "hitting"}&season=${season}&limit=15`
@@ -195,12 +196,14 @@ function TeamStatGrid({ hitting, pitching }: { hitting: MLBHittingStats | null; 
   const StatCell = ({ v, l, fmt, good, bad }: { v: number; l: string; fmt: (n: number) => string; good: (n: number) => boolean; bad: (n: number) => boolean }) => {
     const color = good(v) ? "text-green-400" : bad(v) ? "text-red-400" : "text-primary";
     return (
-      <div className="flex flex-col items-center gap-0.5 py-2">
-        <span className={`text-base font-black stat-number tabular-nums ${color}`}>
-          {fmt(v)}
-        </span>
-        <span className="text-[9px] uppercase tracking-widest text-muted font-semibold">{l}</span>
-      </div>
+      <StatClickable statKey={l} value={fmt(v)}>
+        <div className="flex flex-col items-center gap-0.5 py-2 rounded transition-colors hover:bg-surface-2/50">
+          <span className={`text-base font-black stat-number tabular-nums ${color}`}>
+            {fmt(v)}
+          </span>
+          <span className="text-[9px] uppercase tracking-widest text-muted font-semibold">{l}</span>
+        </div>
+      </StatClickable>
     );
   };
 
@@ -261,25 +264,29 @@ function AdvancedStatsPanel({ hitting, pitching }: { hitting: MLBHittingStats | 
         <div>
           <p className="text-[9px] text-teal uppercase tracking-wider font-bold mb-2">Offense</p>
           {hitterRows.map(({ l, v, note }) => (
-            <div key={l} className="flex items-center justify-between py-1 border-b border-border/20 last:border-0">
-              <div>
-                <span className="text-xs font-bold text-primary">{l}</span>
-                <span className="text-[9px] text-muted ml-2 hidden sm:inline">{note}</span>
+            <StatClickable key={l} statKey={l} value={v}>
+              <div className="flex items-center justify-between py-1 border-b border-border/20 last:border-0 hover:bg-surface-2/40 rounded px-1 -mx-1 transition-colors">
+                <div>
+                  <span className="text-xs font-bold text-primary">{l}</span>
+                  <span className="text-[9px] text-muted ml-2 hidden sm:inline">{note}</span>
+                </div>
+                <span className="text-xs font-black tabular-nums text-teal">{v}</span>
               </div>
-              <span className="text-xs font-black tabular-nums text-teal">{v}</span>
-            </div>
+            </StatClickable>
           ))}
         </div>
         <div>
           <p className="text-[9px] text-violet-400 uppercase tracking-wider font-bold mb-2">Pitching</p>
           {pitcherRows.map(({ l, v, note }) => (
-            <div key={l} className="flex items-center justify-between py-1 border-b border-border/20 last:border-0">
-              <div>
-                <span className="text-xs font-bold text-primary">{l}</span>
-                <span className="text-[9px] text-muted ml-2 hidden sm:inline">{note}</span>
+            <StatClickable key={l} statKey={l} value={v}>
+              <div className="flex items-center justify-between py-1 border-b border-border/20 last:border-0 hover:bg-surface-2/40 rounded px-1 -mx-1 transition-colors">
+                <div>
+                  <span className="text-xs font-bold text-primary">{l}</span>
+                  <span className="text-[9px] text-muted ml-2 hidden sm:inline">{note}</span>
+                </div>
+                <span className="text-xs font-black tabular-nums text-violet-400">{v}</span>
               </div>
-              <span className="text-xs font-black tabular-nums text-violet-400">{v}</span>
-            </div>
+            </StatClickable>
           ))}
         </div>
       </div>

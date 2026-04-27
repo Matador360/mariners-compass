@@ -44,7 +44,7 @@ export default async function RootLayout({
     const games = await fetchSchedule();
     const mood = await computeMarinersMood(games);
     moodEmoji = mood.emoji;
-    winStreak = mood.streakCode.startsWith("W") ? mood.last10W : 0;
+    winStreak = mood.streakCode.startsWith("W") ? (parseInt(mood.streakCode.slice(1)) || 0) : 0;
   } catch {
     // API down — no mood
   }
@@ -58,7 +58,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col" style={{ background: "var(--bg-deep)", color: "var(--text-primary)" }}>
         <CompassBg />
         <Navigation mood={moodEmoji} />
-        <main className="flex-1 container-trident py-6 pb-24 md:pb-8 relative z-10">
+        <main className="flex-1 container-trident py-6 pb-32 md:pb-8 relative z-10">
           {children}
         </main>
         <EasterEggController winStreak={winStreak} />
