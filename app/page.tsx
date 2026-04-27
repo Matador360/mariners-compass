@@ -12,6 +12,7 @@ import { Sparkline } from "@/components/sparkline";
 import { GameCard } from "@/components/game-card";
 import { Last10Strip } from "@/components/last10-strip";
 import { StandingsWidget } from "@/components/standings-widget";
+import { BullpenFatigueStrip } from "@/components/bullpen-fatigue-strip";
 import { TridentDivider } from "@/components/trident-logo";
 import type { MLBGame, MLBHittingStats, MLBPitchingStats, MLBStandingsDivision, MLBStandingsTeamRecord } from "@/types/mlb";
 import { pythagWins, pythagLuck, magicNumber, tragicNumber, pace162 } from "@/lib/predictions";
@@ -796,6 +797,9 @@ export default function HomePage() {
           <div className="space-y-4">
             {/* Standings */}
             {dash?.alWest && <StandingsWidget division={dash.alWest} />}
+
+            {/* Bullpen Fatigue */}
+            <BullpenFatigueStrip />
 
             {/* Streak Tracker */}
             {!logsLoading && streaks.length > 0 && (
