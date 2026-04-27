@@ -98,6 +98,19 @@ function StatExplainerModal() {
     return () => document.removeEventListener("keydown", handler);
   }, [state]);
 
+  useEffect(() => {
+    if (!isPortalOwner) return;
+    function onOpenStat(e: Event) {
+      const detail = (e as CustomEvent<{ statKey?: string }>).detail;
+      if (!detail?.statKey) return;
+      const def = STAT_DEFINITIONS[detail.statKey.toUpperCase()];
+      if (!def) return;
+      emitOpen({ statKey: detail.statKey, value: "—" });
+    }
+    window.addEventListener("trident:open-stat", onOpenStat as EventListener);
+    return () => window.removeEventListener("trident:open-stat", onOpenStat as EventListener);
+  }, [isPortalOwner]);
+
   if (!isPortalOwner || !state) return null;
 
   const def = STAT_DEFINITIONS[state.statKey.toUpperCase()];
@@ -200,6 +213,15 @@ function StatExplainerModal() {
     </div>,
     document.body
   );
+}
+
+// ─── Globally-mounted host: keeps modal alive on every page ───────────────────
+
+export function StatExplainerHost() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return <StatExplainerModal />;
 }
 
 // ─── StatClickable wrapper ────────────────────────────────────────────────────

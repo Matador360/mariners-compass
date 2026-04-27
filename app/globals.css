@@ -60,7 +60,178 @@
   --foreground: var(--text-primary);
 }
 
-/* ─── Light mode ────────────────────────────────────────────────────────────── */
+/* ─── Themed variables (layered upgrade — re-tints page wrapper + new components) ── */
+/*
+ * Default theme (dark) — these match :root above and are also applied by
+ * [data-theme="dark"]. Other themes override only the high-level tokens.
+ * Existing Tailwind classes (bg-slate-950, text-teal-400) are NOT rewritten;
+ * components opt-in to themed colors via .theme-bg / .theme-fg / var(--tt-*).
+ */
+:root {
+  --tt-bg: #0b0f15;
+  --tt-bg-elevated: #0d2038;
+  --tt-bg-glass: rgba(10, 29, 53, 0.62);
+  --tt-fg: #e2e8f0;
+  --tt-fg-muted: #94a3b8;
+  --tt-accent: #2dd4bf;
+  --tt-accent-2: #fbbf24;
+  --tt-danger: #ef4444;
+  --tt-success: #22c55e;
+  --tt-border: rgba(180, 200, 220, 0.10);
+  --tt-overlay-gradient: none;
+}
+
+[data-theme="dark"] {
+  --tt-bg: #0b0f15;
+  --tt-bg-elevated: #0d2038;
+  --tt-bg-glass: rgba(10, 29, 53, 0.62);
+  --tt-fg: #e2e8f0;
+  --tt-fg-muted: #94a3b8;
+  --tt-accent: #2dd4bf;
+  --tt-accent-2: #fbbf24;
+  --tt-danger: #ef4444;
+  --tt-success: #22c55e;
+  --tt-border: rgba(180, 200, 220, 0.10);
+  --tt-overlay-gradient: none;
+}
+
+[data-theme="light"] {
+  --tt-bg: #f8fafc;
+  --tt-bg-elevated: #ffffff;
+  --tt-bg-glass: rgba(255, 255, 255, 0.72);
+  --tt-fg: #0f172a;
+  --tt-fg-muted: #475569;
+  --tt-accent: #0d9488;
+  --tt-accent-2: #b45309;
+  --tt-danger: #dc2626;
+  --tt-success: #16a34a;
+  --tt-border: rgba(15, 23, 42, 0.10);
+  --tt-overlay-gradient: none;
+}
+
+[data-theme="twilight"] {
+  --tt-bg: #1a1330;
+  --tt-bg-elevated: #251a47;
+  --tt-bg-glass: rgba(40, 28, 80, 0.62);
+  --tt-fg: #ede9fe;
+  --tt-fg-muted: #a5b4fc;
+  --tt-accent: #5eead4;
+  --tt-accent-2: #c4b5fd;
+  --tt-danger: #fb7185;
+  --tt-success: #34d399;
+  --tt-border: rgba(196, 181, 253, 0.18);
+  --tt-overlay-gradient:
+    radial-gradient(ellipse at 20% 0%, rgba(94, 234, 212, 0.10), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(196, 181, 253, 0.12), transparent 60%);
+}
+
+[data-theme="sunset-edgar"] {
+  --tt-bg: #1a1a2e;
+  --tt-bg-elevated: #232442;
+  --tt-bg-glass: rgba(40, 38, 70, 0.62);
+  --tt-fg: #f8e9d0;
+  --tt-fg-muted: #b8a380;
+  --tt-accent: #fbbf24;
+  --tt-accent-2: #c79b00;
+  --tt-danger: #ef4444;
+  --tt-success: #84cc16;
+  --tt-border: rgba(251, 191, 36, 0.18);
+  --tt-overlay-gradient:
+    linear-gradient(180deg, rgba(199, 155, 0, 0.10), transparent 40%);
+}
+
+[data-theme="teal-classic"] {
+  --tt-bg: #00553a;
+  --tt-bg-elevated: #00684a;
+  --tt-bg-glass: rgba(0, 90, 65, 0.62);
+  --tt-fg: #ffffff;
+  --tt-fg-muted: #c8e6c9;
+  --tt-accent: #ffd700;
+  --tt-accent-2: #c0c0c0;
+  --tt-danger: #ef4444;
+  --tt-success: #86efac;
+  --tt-border: rgba(255, 215, 0, 0.20);
+  --tt-overlay-gradient: none;
+}
+
+[data-theme="throwback-1995"] {
+  --tt-bg: #006633;
+  --tt-bg-elevated: #007a3d;
+  --tt-bg-glass: rgba(0, 102, 51, 0.62);
+  --tt-fg: #ffffff;
+  --tt-fg-muted: #b3d9b3;
+  --tt-accent: #c0c0c0;
+  --tt-accent-2: #c79b00;
+  --tt-danger: #ff5555;
+  --tt-success: #66ff99;
+  --tt-border: rgba(192, 192, 192, 0.20);
+  --tt-overlay-gradient: none;
+}
+
+[data-theme="playoff-push"] {
+  --tt-bg: #1a1a00;
+  --tt-bg-elevated: #2a2400;
+  --tt-bg-glass: rgba(40, 30, 0, 0.62);
+  --tt-fg: #fde68a;
+  --tt-fg-muted: #a16207;
+  --tt-accent: #fbbf24;
+  --tt-accent-2: #ef4444;
+  --tt-danger: #dc2626;
+  --tt-success: #65a30d;
+  --tt-border: rgba(251, 191, 36, 0.25);
+  --tt-overlay-gradient: none;
+}
+
+/* Themed utility classes — opt-in. Existing Tailwind tokens still render. */
+.theme-bg { background-color: var(--tt-bg); }
+.theme-fg { color: var(--tt-fg); }
+.theme-accent { color: var(--tt-accent); }
+.theme-bg-elevated { background-color: var(--tt-bg-elevated); }
+.theme-border { border-color: var(--tt-border); }
+
+/* Re-tint page background subtly per theme via a fixed overlay. Sits behind compass-bg. */
+.theme-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+  background: var(--tt-overlay-gradient);
+  transition: opacity 0.4s ease;
+}
+
+/* Playoff push: subtle pulsing accent glow */
+@keyframes tt-playoff-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.0)); }
+  50%      { filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.35)); }
+}
+[data-theme="playoff-push"] .theme-accent {
+  animation: tt-playoff-pulse 3s ease-in-out infinite;
+}
+
+/* 1995 throwback: subtle CRT scanlines via fixed overlay */
+[data-theme="throwback-1995"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.06) 0px,
+    rgba(0, 0, 0, 0.06) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="playoff-push"] .theme-accent { animation: none; }
+  [data-theme="throwback-1995"] body::after { opacity: 0.3; }
+}
+
+/* ─── Light mode (legacy class kept for backwards compat) ───────────────────── */
 .light {
   --bg-deep: #EDF1F7;
   --bg-surface: #FFFFFF;

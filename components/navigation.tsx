@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, BarChart2, Users,
-  Zap, Swords, BookOpen, Sprout, ChevronDown, X, Activity,
+  Zap, Swords, BookOpen, Sprout, ChevronDown, X, Activity, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TridentLogo } from "./trident-logo";
-import { ThemeToggle } from "./theme-toggle";
+import { ThemePicker } from "./theme-picker";
+import { loadTheme, saveTheme, type ThemeId } from "@/lib/theme-engine";
 
 const PRIMARY_NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -37,6 +38,8 @@ export function Navigation({ mood }: { mood?: string }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [themeValue, setThemeValue] = useState<ThemeId>("auto");
+  const [themeResolved, setThemeResolved] = useState<ThemeId | undefined>();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +53,34 @@ export function Navigation({ mood }: { mood?: string }) {
   }, []);
 
   useEffect(() => { setSheetOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    setThemeValue(loadTheme());
+    const dt = document.documentElement.dataset.theme as ThemeId | undefined;
+    if (dt) setThemeResolved(dt);
+
+    function onResolved(e: Event) {
+      const detail = (e as CustomEvent<{ id?: ThemeId }>).detail;
+      if (detail?.id) setThemeResolved(detail.id);
+    }
+    function onChange() { setThemeValue(loadTheme()); }
+    window.addEventListener("trident:theme-resolved", onResolved as EventListener);
+    window.addEventListener("trident:theme-change", onChange as EventListener);
+    return () => {
+      window.removeEventListener("trident:theme-resolved", onResolved as EventListener);
+      window.removeEventListener("trident:theme-change", onChange as EventListener);
+    };
+  }, []);
+
+  function handleThemeChange(id: ThemeId) {
+    saveTheme(id);
+    setThemeValue(id);
+    window.dispatchEvent(new CustomEvent("trident:theme-change", { detail: { id } }));
+  }
+
+  function openCmdK() {
+    window.dispatchEvent(new Event("trident:open-cmdk"));
+  }
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -169,7 +200,21 @@ export function Navigation({ mood }: { mood?: string }) {
                 {mood}
               </span>
             )}
-            <ThemeToggle />
+            <button
+              type="button"
+              onClick={openCmdK}
+              aria-label="Open command palette"
+              title="Search (⌘K)"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-border hover:border-border-accent transition-colors text-secondary hover:text-primary"
+            >
+              <Search size={13} />
+              <kbd className="font-mono text-[10px] tracking-wide">⌘K</kbd>
+            </button>
+            <ThemePicker
+              value={themeValue}
+              onChange={handleThemeChange}
+              resolvedId={themeResolved}
+            />
           </div>
         </div>
       </header>
@@ -202,6 +247,16 @@ export function Navigation({ mood }: { mood?: string }) {
               </Link>
             );
           })}
+
+          {/* Search trigger (mobile) */}
+          <button
+            onClick={openCmdK}
+            aria-label="Open command palette"
+            className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-colors duration-150 min-w-[48px] text-muted hover:text-primary"
+          >
+            <Search size={20} />
+            <span className="text-[10px] font-medium">Search</span>
+          </button>
 
           {/* More */}
           <button

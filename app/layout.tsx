@@ -5,7 +5,18 @@ import { Navigation } from "@/components/navigation";
 import { LiveGameBarServer } from "@/components/live-game-bar-server";
 import { CompassBg } from "@/components/compass-bg";
 import { EasterEggController } from "@/components/easter-eggs";
-import { fetchALWestStandings, fetchSchedule, computeMarinersMood } from "@/lib/mlb-api";
+import { ThemeApplier } from "@/components/theme-applier";
+import { CommandPalette } from "@/components/command-palette";
+import { statDefsForPalette } from "@/lib/command-index";
+import { StatExplainerHost } from "@/components/stat-explainer";
+import {
+  fetchALWestStandings,
+  fetchSchedule,
+  computeMarinersMood,
+  fetchRoster,
+} from "@/lib/mlb-api";
+
+const SEA_TEAM_ID = 136;
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -68,6 +79,55 @@ export default async function RootLayout({
     // API down — no mood
   }
 
+  // Standings → magic number + games behind wildcard. Drives auto-theme.
+  let magicNumber: number | null = null;
+  let gamesBehindWildcard: number | null = null;
+  try {
+    const div = await fetchALWestStandings();
+    const sea = div?.teamRecords?.find((r) => r.team?.id === SEA_TEAM_ID);
+    if (sea) {
+      const m = sea.magicNumber;
+      if (m && m !== "-" && m !== "E") {
+        const parsed = parseInt(m, 10);
+        if (!Number.isNaN(parsed)) magicNumber = parsed;
+      }
+      // gamesBehindWildcard: best-effort using division gamesBack as a proxy
+      // when the team is not the leader. This degrades gracefully (null = skip).
+      const gb = sea.gamesBack;
+      if (gb && gb !== "-" && gb !== "+") {
+        const parsedGb = parseFloat(gb);
+        if (!Number.isNaN(parsedGb) && parsedGb > 0) {
+          gamesBehindWildcard = parsedGb;
+        }
+      }
+    }
+  } catch {
+    // standings unavailable — auto theme falls back to time/system
+  }
+
+  // Roster for command palette (active 26-man, may be empty if API down)
+  let palettePlayers: Array<{
+    id: number;
+    fullName: string;
+    primaryPosition?: { abbreviation?: string };
+    jersey?: string;
+  }> = [];
+  try {
+    const roster = await fetchRoster();
+    palettePlayers = roster.map((r) => ({
+      id: r.person.id,
+      fullName: r.person.fullName,
+      primaryPosition: r.position
+        ? { abbreviation: r.position.abbreviation }
+        : undefined,
+      jersey: r.jerseyNumber,
+    }));
+  } catch {
+    // roster unavailable — palette still works for pages/stats/themes
+  }
+
+  const statDefs = statDefsForPalette();
+
   return (
     <html
       lang="en"
@@ -75,13 +135,20 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <ThemeApplier
+          magicNumber={magicNumber}
+          gamesBehindWildcard={gamesBehindWildcard}
+        />
         <CompassBg />
+        <div className="theme-overlay" aria-hidden />
         <Navigation mood={moodEmoji} />
         <LiveGameBarServer />
         <main className="flex-1 container-trident pt-6 pb-nav relative z-10">
           {children}
         </main>
         <EasterEggController winStreak={winStreak} />
+        <CommandPalette players={palettePlayers} statDefs={statDefs} />
+        <StatExplainerHost />
         <footer className="hidden md:block py-6 relative z-10">
           <div className="container-trident flex items-center justify-between">
             <div className="flex items-center gap-2 text-muted/50">
