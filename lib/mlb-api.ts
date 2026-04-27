@@ -193,6 +193,182 @@ export async function fetchPlayerCareerStats(
   return data.stats?.[0]?.splits ?? [];
 }
 
+export interface MarinerCareerSplit {
+  season: string;
+  team?: { id: number };
+  stat: MLBHittingStats | MLBPitchingStats;
+}
+
+export async function fetchPlayerCareerAsMariner(
+  id: number,
+  group: "hitting" | "pitching"
+): Promise<{ aggregated: MLBHittingStats | MLBPitchingStats | null; seasons: number }> {
+  try {
+    const data = await apiFetch<{
+      stats: Array<{ splits: Array<MarinerCareerSplit> }>;
+    }>(
+      `/people/${id}/stats?stats=yearByYear&group=${group}`,
+      86400
+    );
+    const all = data.stats?.[0]?.splits ?? [];
+    const marinerSplits = all.filter((s) => s.team?.id === TEAM_ID);
+    if (marinerSplits.length === 0) return { aggregated: null, seasons: 0 };
+
+    if (group === "hitting") {
+      return {
+        aggregated: aggregateHittingSplits(
+          marinerSplits.map((s) => s.stat as MLBHittingStats)
+        ),
+        seasons: marinerSplits.length,
+      };
+    }
+    return {
+      aggregated: aggregatePitchingSplits(
+        marinerSplits.map((s) => s.stat as MLBPitchingStats)
+      ),
+      seasons: marinerSplits.length,
+    };
+  } catch {
+    return { aggregated: null, seasons: 0 };
+  }
+}
+
+function aggregateHittingSplits(splits: MLBHittingStats[]): MLBHittingStats {
+  const acc = {
+    gamesPlayed: 0,
+    atBats: 0,
+    runs: 0,
+    hits: 0,
+    doubles: 0,
+    triples: 0,
+    homeRuns: 0,
+    rbi: 0,
+    stolenBases: 0,
+    caughtStealing: 0,
+    strikeOuts: 0,
+    baseOnBalls: 0,
+    intentionalWalks: 0,
+    hitByPitch: 0,
+    sacBunts: 0,
+    sacFlies: 0,
+    totalBases: 0,
+    groundOuts: 0,
+    airOuts: 0,
+    plateAppearances: 0,
+  };
+  for (const s of splits) {
+    acc.gamesPlayed += s.gamesPlayed ?? 0;
+    acc.atBats += s.atBats ?? 0;
+    acc.runs += s.runs ?? 0;
+    acc.hits += s.hits ?? 0;
+    acc.doubles += s.doubles ?? 0;
+    acc.triples += s.triples ?? 0;
+    acc.homeRuns += s.homeRuns ?? 0;
+    acc.rbi += s.rbi ?? 0;
+    acc.stolenBases += s.stolenBases ?? 0;
+    acc.caughtStealing += s.caughtStealing ?? 0;
+    acc.strikeOuts += s.strikeOuts ?? 0;
+    acc.baseOnBalls += s.baseOnBalls ?? 0;
+    acc.intentionalWalks += s.intentionalWalks ?? 0;
+    acc.hitByPitch += s.hitByPitch ?? 0;
+    acc.sacBunts += s.sacBunts ?? 0;
+    acc.sacFlies += s.sacFlies ?? 0;
+    acc.totalBases += s.totalBases ?? 0;
+    acc.groundOuts += s.groundOuts ?? 0;
+    acc.airOuts += s.airOuts ?? 0;
+    acc.plateAppearances += s.plateAppearances ?? 0;
+  }
+
+  const avg = acc.atBats > 0 ? (acc.hits / acc.atBats) : 0;
+  const obpDen = acc.atBats + acc.baseOnBalls + acc.hitByPitch + acc.sacFlies;
+  const obp = obpDen > 0 ? (acc.hits + acc.baseOnBalls + acc.hitByPitch) / obpDen : 0;
+  const slg = acc.atBats > 0 ? acc.totalBases / acc.atBats : 0;
+  const ops = obp + slg;
+
+  return {
+    ...acc,
+    avg: avg.toFixed(3).replace(/^0/, ""),
+    obp: obp.toFixed(3).replace(/^0/, ""),
+    slg: slg.toFixed(3).replace(/^0/, ""),
+    ops: ops.toFixed(3),
+  } as MLBHittingStats;
+}
+
+function parseInningsPitched(ip: string | undefined): number {
+  if (!ip) return 0;
+  const [whole, frac] = String(ip).split(".");
+  const w = parseInt(whole) || 0;
+  const f = parseInt(frac || "0") || 0;
+  return w + f / 3;
+}
+
+function formatInningsPitched(n: number): string {
+  const whole = Math.floor(n);
+  const frac = Math.round((n - whole) * 3);
+  return `${whole}.${frac}`;
+}
+
+function aggregatePitchingSplits(splits: MLBPitchingStats[]): MLBPitchingStats {
+  let outs = 0;
+  const acc = {
+    wins: 0,
+    losses: 0,
+    gamesPitched: 0,
+    gamesStarted: 0,
+    completeGames: 0,
+    shutouts: 0,
+    saves: 0,
+    saveOpportunities: 0,
+    holds: 0,
+    blownSaves: 0,
+    hits: 0,
+    runs: 0,
+    earnedRuns: 0,
+    homeRuns: 0,
+    baseOnBalls: 0,
+    intentionalWalks: 0,
+    strikeOuts: 0,
+    hitByPitch: 0,
+    battersFaced: 0,
+  };
+  for (const s of splits) {
+    acc.wins += s.wins ?? 0;
+    acc.losses += s.losses ?? 0;
+    acc.gamesPitched += s.gamesPitched ?? 0;
+    acc.gamesStarted += s.gamesStarted ?? 0;
+    acc.completeGames += s.completeGames ?? 0;
+    acc.shutouts += s.shutouts ?? 0;
+    acc.saves += s.saves ?? 0;
+    acc.saveOpportunities += s.saveOpportunities ?? 0;
+    acc.holds += s.holds ?? 0;
+    acc.blownSaves += s.blownSaves ?? 0;
+    acc.hits += s.hits ?? 0;
+    acc.runs += s.runs ?? 0;
+    acc.earnedRuns += s.earnedRuns ?? 0;
+    acc.homeRuns += s.homeRuns ?? 0;
+    acc.baseOnBalls += s.baseOnBalls ?? 0;
+    acc.intentionalWalks += s.intentionalWalks ?? 0;
+    acc.strikeOuts += s.strikeOuts ?? 0;
+    acc.hitByPitch += s.hitByPitch ?? 0;
+    acc.battersFaced += s.battersFaced ?? 0;
+    outs += parseInningsPitched(s.inningsPitched) * 3;
+  }
+  const ip = outs / 3;
+  const era = ip > 0 ? (acc.earnedRuns * 9) / ip : 0;
+  const whip = ip > 0 ? (acc.baseOnBalls + acc.hits) / ip : 0;
+  const k9 = ip > 0 ? (acc.strikeOuts * 9) / ip : 0;
+  const bb9 = ip > 0 ? (acc.baseOnBalls * 9) / ip : 0;
+
+  return {
+    ...acc,
+    inningsPitched: formatInningsPitched(ip),
+    era: era.toFixed(2),
+    whip: whip.toFixed(2),
+    strikeoutsPer9Inn: k9.toFixed(2),
+    walksPer9Inn: bb9.toFixed(2),
+  } as MLBPitchingStats;
+}
+
 export async function fetchPlayerGameLog(
   id: number,
   group: "hitting" | "pitching"
