@@ -13,7 +13,9 @@ import { GameCard } from "@/components/game-card";
 import { Last10Strip } from "@/components/last10-strip";
 import { StandingsWidget } from "@/components/standings-widget";
 import { TridentDivider } from "@/components/trident-logo";
-import type { MLBGame, MLBHittingStats, MLBPitchingStats, MLBStandingsDivision } from "@/types/mlb";
+import type { MLBGame, MLBHittingStats, MLBPitchingStats, MLBStandingsDivision, MLBStandingsTeamRecord } from "@/types/mlb";
+import { pythagWins, pythagLuck, magicNumber, tragicNumber, pace162 } from "@/lib/predictions";
+import { captionForStreak, captionForRunDiff, type Tone } from "@/lib/captions";
 import type { OutlierFact } from "@/lib/calc-stats";
 
 const BASE = "https://statsapi.mlb.com/api/v1";
@@ -391,7 +393,7 @@ function DidYouKnow() {
   );
 }
 
-function SeasonMoodChart({ games }: { games: MLBGame[] }) {
+function SeasonMoodChart({ games, tone = 'spicy' }: { games: MLBGame[]; tone?: Tone }) {
   const data = useMemo(() => {
     const finished = games
       .filter((g) => g.status.abstractGameState === "Final")
@@ -442,26 +444,19 @@ function SeasonMoodChart({ games }: { games: MLBGame[] }) {
   const { values, count, streakDir, streakCount, lastWin, lastClose, lastBlowout } = data;
   const current = values[values.length - 1];
 
-  let moodEmoji: string, moodLabel: string, moodColor: string;
-  if (streakDir === "W" && streakCount >= 5) {
-    moodEmoji = "🔥"; moodLabel = "We're f***ing ROLLING"; moodColor = "#FFB700";
-  } else if (streakDir === "W" && streakCount >= 3) {
-    moodEmoji = "😎"; moodLabel = "Vibes are immaculate. Don't jinx it."; moodColor = "#22C55E";
-  } else if (lastWin && lastBlowout) {
-    moodEmoji = "😎"; moodLabel = "Absolutely demolished those poor bastards"; moodColor = "#22C55E";
-  } else if (lastWin && lastClose) {
-    moodEmoji = "😅"; moodLabel = "Clenched the whole 9th but we'll take it"; moodColor = "#00A3A3";
-  } else if (!lastWin && lastBlowout) {
-    moodEmoji = "😡"; moodLabel = "What the actual f*** was that"; moodColor = "#EF4444";
-  } else if (!lastWin && lastClose) {
-    moodEmoji = "😔"; moodLabel = "Pain. Pure, uncut pain."; moodColor = "#F97316";
-  } else if (streakDir === "L" && streakCount >= 5) {
-    moodEmoji = "💀"; moodLabel = "Somebody check on the bullpen, I think they're dead"; moodColor = "#EF4444";
-  } else if (streakDir === "L" && streakCount >= 3) {
-    moodEmoji = "😬"; moodLabel = "Everything is fine. 🔥 This is fine."; moodColor = "#F97316";
-  } else {
-    moodEmoji = "😐"; moodLabel = "Aggressively mediocre. The Mariners special™"; moodColor = "#00A3A3";
-  }
+  const streakN = streakDir === "W" ? streakCount : streakDir === "L" ? -streakCount : 0;
+  const seed = count;
+  const captions = Math.abs(streakN) >= 3
+    ? captionForStreak(streakN, seed, tone)
+    : captionForRunDiff(current, seed, tone);
+  const cap = captions[0] ?? { tier: "neutral" as const, text: "Aggressively mediocre. The Mariners special™" };
+
+  const tierEmoji: Record<string, string> = { hot: "🔥", spicy: "⚡", cold: "🥶", tragic: "💀", neutral: "😐", lore: "🔱" };
+  const tierColor: Record<string, string> = { hot: "#FFB700", spicy: "#22C55E", cold: "#8BA4BA", tragic: "#EF4444", neutral: "#00A3A3", lore: "#FFB700" };
+
+  const moodEmoji = cap.emoji ?? tierEmoji[cap.tier] ?? "😐";
+  const moodLabel = cap.text;
+  const moodColor = tierColor[cap.tier] ?? "#00A3A3";
 
   const lineColor = current >= 0 ? "#22C55E" : "#EF4444";
   const W = 400, H = 56, pad = 4;
@@ -504,6 +499,105 @@ function SeasonMoodChart({ games }: { games: MLBGame[] }) {
         <span className="text-[10px] text-muted">Now →</span>
       </div>
     </div>
+  );
+}
+
+function PythagLuckCard({ runsScored, runsAllowed, actualWins, gamesPlayed }: {
+  runsScored: number;
+  runsAllowed: number;
+  actualWins: number;
+  gamesPlayed: number;
+}) {
+  if (gamesPlayed < 10 || runsScored <= 0 || runsAllowed <= 0) return null;
+  const { expectedW } = pythagWins(runsScored, runsAllowed, gamesPlayed);
+  const { delta, label } = pythagLuck(actualWins, expectedW);
+  const sign = delta >= 0 ? "+" : "";
+  const color = label === "lucky" ? "#FFB700" : label === "unlucky" ? "#EF4444" : "#8BA4BA";
+  const text = label === "lucky" ? "Running Hot" : label === "unlucky" ? "Running Cold" : "As Expected";
+
+  return (
+    <StatClickable statKey="PYTHAG_W" value={expectedW.toFixed(1)}>
+      <div className="trident-card p-4 flex flex-col gap-2 cursor-pointer hover:bg-white/[0.02] transition-colors">
+        <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">Pythagorean W</p>
+        <div className="flex items-baseline gap-2">
+          <span className="font-black text-2xl tabular-nums text-primary leading-none" style={{ fontFamily: "var(--font-mono)" }}>
+            <CountingNumber value={expectedW} decimals={1} duration={600} />
+          </span>
+          <span className="text-xs text-muted">expected</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold tabular-nums" style={{ color }}>
+            {sign}{delta.toFixed(1)}W
+          </span>
+          <span className="text-[10px] text-muted uppercase tracking-wider">{text}</span>
+        </div>
+      </div>
+    </StatClickable>
+  );
+}
+
+function MagicNumberCard({ teamRecord, divisionRecords }: {
+  teamRecord: MLBStandingsTeamRecord;
+  divisionRecords: MLBStandingsTeamRecord[];
+}) {
+  const gamesPlayed = teamRecord.wins + teamRecord.losses;
+  const gamesRemaining = Math.max(0, 162 - gamesPlayed);
+
+  if (gamesPlayed < 30) {
+    const { projectedWins, pace } = pace162(teamRecord.wins, teamRecord.losses);
+    return (
+      <div className="trident-card p-4 flex flex-col gap-2">
+        <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">Pace / 162</p>
+        <div className="flex items-baseline gap-2">
+          <span className="font-black text-2xl tabular-nums text-primary leading-none" style={{ fontFamily: "var(--font-mono)" }}>
+            <CountingNumber value={projectedWins} duration={600} />
+          </span>
+          <span className="text-xs text-muted">proj wins</span>
+        </div>
+        <span className="text-[10px] text-muted">{pace.toFixed(3).replace(/^0/, "")} win%</span>
+      </div>
+    );
+  }
+
+  const sorted = [...divisionRecords].sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+  const isLeader = sorted[0]?.team.id === 136;
+
+  if (isLeader) {
+    const second = sorted[1];
+    const mn = second != null ? magicNumber(teamRecord.wins, teamRecord.losses, second.losses, gamesRemaining) : null;
+    const color = mn != null && mn <= 10 ? "#FFB700" : "#22C55E";
+    return (
+      <StatClickable statKey="MAGIC_NUM" value={mn != null ? String(mn) : "–"}>
+        <div className="trident-card p-4 flex flex-col gap-2 cursor-pointer hover:bg-white/[0.02] transition-colors">
+          <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">Magic #</p>
+          <div className="flex items-baseline gap-2">
+            <span className="font-black text-2xl tabular-nums leading-none" style={{ fontFamily: "var(--font-mono)", color }}>
+              {mn != null ? <CountingNumber value={mn} duration={600} /> : "–"}
+            </span>
+            <span className="text-xs text-muted">to clinch</span>
+          </div>
+          <span className="text-[10px] text-muted">AL West lead · {gamesRemaining}G left</span>
+        </div>
+      </StatClickable>
+    );
+  }
+
+  const leader = sorted[0];
+  const tn = leader != null ? tragicNumber(teamRecord.wins, teamRecord.losses, leader.wins, gamesRemaining) : null;
+  const color = tn != null && tn <= 10 ? "#EF4444" : "#F97316";
+  return (
+    <StatClickable statKey="TRAGIC_NUM" value={tn != null ? String(tn) : "–"}>
+      <div className="trident-card p-4 flex flex-col gap-2 cursor-pointer hover:bg-white/[0.02] transition-colors">
+        <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">Tragic #</p>
+        <div className="flex items-baseline gap-2">
+          <span className="font-black text-2xl tabular-nums leading-none" style={{ fontFamily: "var(--font-mono)", color }}>
+            {tn != null ? <CountingNumber value={tn} duration={600} /> : "–"}
+          </span>
+          <span className="text-xs text-muted">to elim</span>
+        </div>
+        <span className="text-[10px] text-muted">{gamesRemaining}G left</span>
+      </div>
+    </StatClickable>
   );
 }
 
@@ -574,6 +668,12 @@ export default function HomePage() {
 
   const marinersRecord = dash?.marinersRecord;
   const isLoading = dashLoading;
+
+  const [tone, setTone] = useState<Tone>('spicy');
+  useEffect(() => {
+    const saved = localStorage.getItem('trident:tone');
+    if (saved === 'family' || saved === 'spicy' || saved === 'profane') setTone(saved as Tone);
+  }, []);
 
   return (
     <div className="space-y-0">
@@ -647,6 +747,22 @@ export default function HomePage() {
               />
             )}
 
+            {/* Pythagorean luck + magic/tragic number */}
+            {!isLoading && marinersRecord && dash?.alWest && (
+              <div className="grid grid-cols-2 gap-4">
+                <PythagLuckCard
+                  runsScored={marinersRecord.runsScored ?? 0}
+                  runsAllowed={marinersRecord.runsAllowed ?? 0}
+                  actualWins={marinersRecord.wins}
+                  gamesPlayed={marinersRecord.wins + marinersRecord.losses}
+                />
+                <MagicNumberCard
+                  teamRecord={marinersRecord}
+                  divisionRecords={dash.alWest.teamRecords}
+                />
+              </div>
+            )}
+
             {/* Team stats grid */}
             {!isLoading && <TeamStatGrid hitting={hitting} pitching={pitching} />}
 
@@ -669,7 +785,7 @@ export default function HomePage() {
 
             {/* Season Mood chart */}
             {dash?.games && dash.games.length > 0 && (
-              <SeasonMoodChart games={dash.games} />
+              <SeasonMoodChart games={dash.games} tone={tone} />
             )}
 
             {/* Did You Know */}
