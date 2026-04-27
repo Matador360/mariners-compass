@@ -60,3 +60,37 @@ describe("ichiro 2004 hits — single source of truth", () => {
     }
   });
 });
+
+describe("playoff drought tile (bug 3)", () => {
+  // Bug report described two drought renderings: 13 yrs in one tile, 21 yrs
+  // in another. Local source already has only 21 yrs. Guard against any
+  // duplicate or leftover "13 yrs" drought tile re-appearing.
+
+  it("HISTORY_HEADLINE_STATS has exactly one Playoff Drought entry of 21 yrs", () => {
+    const droughts = HISTORY_HEADLINE_STATS.filter((s) =>
+      /Playoff Drought/i.test(s.label)
+    );
+    expect(droughts).toHaveLength(1);
+    expect(droughts[0].value).toBe(21);
+    expect(droughts[0].suffix).toBe(" yrs");
+  });
+
+  it("no headline stat carries a stale '13 yrs' drought value", () => {
+    const stale = HISTORY_HEADLINE_STATS.find(
+      (s) => /Drought/i.test(s.label) && s.value === 13
+    );
+    expect(stale).toBeUndefined();
+  });
+
+  it("history-static-content.tsx does not render a hardcoded '13 yrs' drought", () => {
+    const text = readFileSync(
+      resolve(ROOT, "components/history-static-content.tsx"),
+      "utf8"
+    );
+    // Look for "13 yrs" or "13 years" near the word "drought" (case-insensitive,
+    // multiline, within 80 chars).
+    const droughtNear13 = /drought[\s\S]{0,80}\b13\s*(?:yrs|years)\b/i.test(text);
+    const thirteenNearDrought = /\b13\s*(?:yrs|years)[\s\S]{0,80}drought/i.test(text);
+    expect(droughtNear13 || thirteenNearDrought).toBe(false);
+  });
+});
