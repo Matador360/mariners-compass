@@ -190,7 +190,7 @@ function ListView({
       cur = {
         opponentId: oppId,
         opponentName: opp.team.name,
-        opponentAbbr: opp.team.abbreviation ?? opp.team.teamName?.slice(0, 3) ?? "???",
+        opponentAbbr: opp.team.abbreviation ?? opp.team.teamName ?? opp.team.name?.split(" ").pop()?.slice(0, 3).toUpperCase() ?? "???",
         isHome,
         games: [],
       };
