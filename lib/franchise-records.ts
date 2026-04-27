@@ -3,6 +3,24 @@ import type { MLBHittingStats, MLBPitchingStats } from "@/types/mlb";
 export type RecordTier = "hitting" | "pitching";
 export type ChasePace = "on-track" | "unlikely" | "long-shot" | "shattered";
 
+/**
+ * Optional qualification gate for rate-stat records (AVG, OPS, ERA).
+ *
+ * MLB record books require minimum playing time so that a 4-PA hitter who
+ * went 3-for-4 doesn't appear above .322 career average. The label on these
+ * records already says "min 1000 PA" / "min 1000 IP"; this enforces it.
+ *
+ * For pitching records the field is `inningsPitched`, which the MLB API
+ * returns as a string like "1234.1" (.1 = 1 out, .2 = 2 outs). We coerce
+ * with parseFloat — close enough for a >=/<= gate at 1000.
+ */
+export interface RecordThreshold {
+  /** Field on the MLBHittingStats / MLBPitchingStats object. */
+  field: string;
+  /** Minimum value (inclusive). */
+  min: number;
+}
+
 export interface FranchiseRecord {
   statKey: string;
   label: string;
@@ -12,6 +30,8 @@ export interface FranchiseRecord {
   unit?: "rate" | "int";
   tier: RecordTier;
   betterDirection: "higher" | "lower";
+  /** If set, players below the threshold do not qualify for the chase. */
+  threshold?: RecordThreshold;
 }
 
 export interface ChaseResult {
@@ -19,6 +39,12 @@ export interface ChaseResult {
   pct: number;
   gap: number;
   pace: ChasePace;
+  /**
+   * False when the player's volume (PA / IP) is below the record's threshold.
+   * Callers should hide non-qualifying chasers from leaderboards. Always
+   * true for counting-stat records (no threshold defined).
+   */
+  qualifies: boolean;
 }
 
 // Verified against baseball-reference.com/teams/SEA/leaders.shtml as of 2026.
@@ -93,6 +119,7 @@ export const FRANCHISE_RECORDS: FranchiseRecord[] = [
     unit: "rate",
     tier: "hitting",
     betterDirection: "higher",
+    threshold: { field: "plateAppearances", min: 1000 },
   },
   {
     statKey: "ops",
@@ -103,6 +130,7 @@ export const FRANCHISE_RECORDS: FranchiseRecord[] = [
     unit: "rate",
     tier: "hitting",
     betterDirection: "higher",
+    threshold: { field: "plateAppearances", min: 1000 },
   },
   {
     statKey: "wins",
@@ -133,6 +161,7 @@ export const FRANCHISE_RECORDS: FranchiseRecord[] = [
     unit: "rate",
     tier: "pitching",
     betterDirection: "lower",
+    threshold: { field: "inningsPitched", min: 1000 },
   },
   {
     statKey: "saves",
@@ -171,6 +200,24 @@ export function computeChase(
   const currentValue =
     typeof raw === "number" ? raw : raw != null ? parseFloat(String(raw)) || 0 : 0;
 
+  // Volume gate: rate-stat records require min PA / IP. Counting stats have
+  // no threshold and always qualify.
+  let qualifies = true;
+  if (record.threshold && stats) {
+    const thresholdRaw = (stats as unknown as Record<string, string | number | undefined>)[
+      record.threshold.field
+    ];
+    const thresholdValue =
+      typeof thresholdRaw === "number"
+        ? thresholdRaw
+        : thresholdRaw != null
+          ? parseFloat(String(thresholdRaw)) || 0
+          : 0;
+    qualifies = thresholdValue >= record.threshold.min;
+  } else if (record.threshold && !stats) {
+    qualifies = false;
+  }
+
   const ratio = record.value > 0 ? currentValue / record.value : 0;
   const pct = Math.max(0, Math.min(2, ratio));
   const gap = record.value - currentValue;
@@ -186,5 +233,5 @@ export function computeChase(
     pace = "long-shot";
   }
 
-  return { current: currentValue, pct, gap, pace };
+  return { current: currentValue, pct, gap, pace, qualifies };
 }
