@@ -12,6 +12,8 @@ import { ClickableStatTile } from "@/components/stat-explainer";
 import { CountingNumber } from "@/components/counting-number";
 import { Sparkline } from "@/components/sparkline";
 import { PitchArsenal, buildPitchArsenal } from "@/components/pitch-arsenal";
+import { PlayerStatcastTab } from "@/components/player-statcast-tab";
+import type { SavantPitch, SavantArsenalPitch, SavantExpected } from "@/lib/savant";
 import {
   calcAdvancedHitting,
   calcAdvancedPitching,
@@ -33,6 +35,13 @@ import type { MLBPerson, MLBHittingStats, MLBPitchingStats } from "@/types/mlb";
 const SEASON = new Date().getFullYear();
 const BASE = "https://statsapi.mlb.com/api/v1";
 
+interface StatcastData {
+  pitches: SavantPitch[];
+  arsenal: SavantArsenalPitch[];
+  expected: SavantExpected | null;
+  sprintSpeed: number | null;
+}
+
 interface PlayerPageData {
   bio: MLBPerson | null;
   hitting: MLBHittingStats | null;
@@ -45,11 +54,14 @@ interface PlayerPageData {
     stat: MLBHittingStats | MLBPitchingStats;
   }>;
   isPitcher: boolean;
+  statcast: StatcastData;
 }
 
 function usePlayer(id: string) {
+  const EMPTY_STATCAST: StatcastData = { pitches: [], arsenal: [], expected: null, sprintSpeed: null };
   const [data, setData] = useState<PlayerPageData>({
     bio: null, hitting: null, pitching: null, career: [], gameLog: [], isPitcher: false,
+    statcast: EMPTY_STATCAST,
   });
   const [loading, setLoading] = useState(true);
 
@@ -63,10 +75,12 @@ function usePlayer(id: string) {
         const isPitcher = bio?.primaryPosition?.type === "Pitcher";
         const group = isPitcher ? "pitching" : "hitting";
 
-        const [seasonRes, careerRes, logRes] = await Promise.allSettled([
+        const savantPath = isPitcher ? 'pitcher' : 'batter';
+        const [seasonRes, careerRes, logRes, savantRes] = await Promise.allSettled([
           fetch(`${BASE}/people/${id}/stats?stats=season&group=${group}&season=${SEASON}`).then((r) => r.json()),
           fetch(`${BASE}/people/${id}/stats?stats=yearByYear&group=${group}`).then((r) => r.json()),
           fetch(`${BASE}/people/${id}/stats?stats=gameLog&group=${group}&season=${SEASON}&limit=40`).then((r) => r.json()),
+          fetch(`/api/savant/${savantPath}/${id}`).then((r) => r.json()),
         ]);
 
         const seasonStats = seasonRes.status === "fulfilled"
@@ -75,6 +89,7 @@ function usePlayer(id: string) {
           ? careerRes.value?.stats?.[0]?.splits ?? [] : [];
         const gameLog = logRes.status === "fulfilled"
           ? logRes.value?.stats?.[0]?.splits?.reverse() ?? [] : [];
+        const savant = savantRes.status === "fulfilled" ? savantRes.value : {};
 
         setData({
           bio,
@@ -83,6 +98,12 @@ function usePlayer(id: string) {
           career,
           gameLog,
           isPitcher,
+          statcast: {
+            pitches:     savant.pitches     ?? [],
+            arsenal:     savant.arsenal     ?? [],
+            expected:    savant.expected    ?? null,
+            sprintSpeed: savant.sprintSpeed ?? null,
+          },
         });
         setLoading(false);
       })
@@ -209,7 +230,7 @@ export default function PlayerPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data, loading } = usePlayer(id ?? "");
-  const [activeTab, setActiveTab] = useState<"stats" | "gamelog" | "career">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "statcast" | "gamelog" | "career">("stats");
 
   const { bio, hitting, pitching, career, gameLog, isPitcher } = data;
 
@@ -450,8 +471,8 @@ export default function PlayerPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-surface rounded-xl w-fit">
-        {(["stats", "gamelog", "career"] as const).map((tab) => (
+      <div className="flex gap-1 p-1 bg-surface rounded-xl w-fit flex-wrap">
+        {(["stats", "statcast", "gamelog", "career"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -460,7 +481,7 @@ export default function PlayerPage() {
               activeTab === tab ? "bg-teal text-white" : "text-muted hover:text-primary"
             )}
           >
-            {tab === "gamelog" ? "Game Log" : tab}
+            {tab === "gamelog" ? "Game Log" : tab === "statcast" ? "Statcast" : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -512,6 +533,18 @@ export default function PlayerPage() {
             <PitchArsenal pitches={pitchArsenal} pitcherName={bio.fullName} />
           )}
         </div>
+      )}
+
+      {/* STATCAST TAB */}
+      {activeTab === "statcast" && (
+        <PlayerStatcastTab
+          pitches={data.statcast.pitches}
+          arsenal={data.statcast.arsenal}
+          expected={data.statcast.expected}
+          sprintSpeed={data.statcast.sprintSpeed}
+          isPitcher={isPitcher}
+          year={SEASON}
+        />
       )}
 
       {/* GAME LOG TAB */}
