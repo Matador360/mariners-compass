@@ -15,6 +15,13 @@ import { PitchArsenal, buildPitchArsenal } from "@/components/pitch-arsenal";
 import { PlayerStatcastTab } from "@/components/player-statcast-tab";
 import type { SavantPitch, SavantArsenalPitch, SavantExpected } from "@/lib/savant";
 import {
+  PlayerSplits,
+  PitcherSplits,
+  type SplitGroup,
+  type SplitRow,
+  type PitcherSplitRow,
+} from "@/components/player-splits";
+import {
   calcAdvancedHitting,
   calcAdvancedPitching,
   detectHittingOutliers,
@@ -53,14 +60,22 @@ interface PlayerPageData {
     isHome: boolean;
     stat: MLBHittingStats | MLBPitchingStats;
   }>;
+  splits: Array<{ code: string; description?: string; stat: MLBHittingStats | MLBPitchingStats }>;
   isPitcher: boolean;
   statcast: StatcastData;
+}
+
+const SPLIT_SIT_CODES = "vl,vr,h,a,d,n,risp,rispt2,2sk,1sk,empty,7i,sp";
+
+interface SplitApiEntry {
+  split?: { code?: string; description?: string };
+  stat: MLBHittingStats | MLBPitchingStats;
 }
 
 function usePlayer(id: string) {
   const EMPTY_STATCAST: StatcastData = { pitches: [], arsenal: [], expected: null, sprintSpeed: null };
   const [data, setData] = useState<PlayerPageData>({
-    bio: null, hitting: null, pitching: null, career: [], gameLog: [], isPitcher: false,
+    bio: null, hitting: null, pitching: null, career: [], gameLog: [], splits: [], isPitcher: false,
     statcast: EMPTY_STATCAST,
   });
   const [loading, setLoading] = useState(true);
@@ -76,11 +91,12 @@ function usePlayer(id: string) {
         const group = isPitcher ? "pitching" : "hitting";
 
         const savantPath = isPitcher ? 'pitcher' : 'batter';
-        const [seasonRes, careerRes, logRes, savantRes] = await Promise.allSettled([
+        const [seasonRes, careerRes, logRes, savantRes, splitsRes] = await Promise.allSettled([
           fetch(`${BASE}/people/${id}/stats?stats=season&group=${group}&season=${SEASON}`).then((r) => r.json()),
           fetch(`${BASE}/people/${id}/stats?stats=yearByYear&group=${group}`).then((r) => r.json()),
           fetch(`${BASE}/people/${id}/stats?stats=gameLog&group=${group}&season=${SEASON}&limit=40`).then((r) => r.json()),
           fetch(`/api/savant/${savantPath}/${id}`).then((r) => r.json()),
+          fetch(`${BASE}/people/${id}/stats?stats=statSplits&group=${group}&season=${SEASON}&sitCodes=${SPLIT_SIT_CODES}`).then((r) => r.json()),
         ]);
 
         const seasonStats = seasonRes.status === "fulfilled"
@@ -90,6 +106,15 @@ function usePlayer(id: string) {
         const gameLog = logRes.status === "fulfilled"
           ? logRes.value?.stats?.[0]?.splits?.reverse() ?? [] : [];
         const savant = savantRes.status === "fulfilled" ? savantRes.value : {};
+        const splitsRaw: SplitApiEntry[] = splitsRes.status === "fulfilled"
+          ? splitsRes.value?.stats?.[0]?.splits ?? [] : [];
+        const splits = splitsRaw
+          .filter((s) => s?.split?.code && s.stat)
+          .map((s) => ({
+            code: s.split!.code as string,
+            description: s.split?.description,
+            stat: s.stat,
+          }));
 
         setData({
           bio,
@@ -97,6 +122,7 @@ function usePlayer(id: string) {
           pitching: isPitcher ? (seasonStats as MLBPitchingStats) : null,
           career,
           gameLog,
+          splits,
           isPitcher,
           statcast: {
             pitches:     savant.pitches     ?? [],
@@ -111,6 +137,90 @@ function usePlayer(id: string) {
   }, [id]);
 
   return { data, loading };
+}
+
+function buildHitterSplitGroups(
+  splits: PlayerPageData["splits"]
+): SplitGroup[] {
+  const byCode = new Map<string, MLBHittingStats>();
+  for (const s of splits) byCode.set(s.code, s.stat as MLBHittingStats);
+
+  const toRow = (label: string, code: string, highlight = false): SplitRow | null => {
+    const s = byCode.get(code);
+    if (!s) return null;
+    return {
+      label,
+      avg: String(s.avg ?? ".000"),
+      ops: String(s.ops ?? ".000"),
+      hr: Number(s.homeRuns ?? 0),
+      rbi: Number(s.rbi ?? 0),
+      ab: Number(s.atBats ?? 0),
+      h: Number(s.hits ?? 0),
+      highlight,
+    };
+  };
+
+  const groups: SplitGroup[] = [];
+  const handedness = [toRow("vs LHP", "vl"), toRow("vs RHP", "vr")].filter(Boolean) as SplitRow[];
+  if (handedness.length) groups.push({ title: "By Handedness", rows: handedness });
+
+  const ha = [toRow("Home", "h"), toRow("Away", "a")].filter(Boolean) as SplitRow[];
+  if (ha.length) groups.push({ title: "Home / Away", rows: ha });
+
+  const dn = [toRow("Day", "d"), toRow("Night", "n")].filter(Boolean) as SplitRow[];
+  if (dn.length) groups.push({ title: "Day / Night", rows: dn });
+
+  const risp = [toRow("RISP", "risp", true), toRow("RISP, 2 outs", "rispt2"), toRow("Bases empty", "empty")].filter(Boolean) as SplitRow[];
+  if (risp.length) groups.push({ title: "Runners On Base", rows: risp });
+
+  const counts = [toRow("2 strikes", "2sk"), toRow("1 strike", "1sk")].filter(Boolean) as SplitRow[];
+  if (counts.length) groups.push({ title: "By Count", rows: counts });
+
+  const late = [toRow("Innings 7+", "7i"), toRow("vs Starters", "sp")].filter(Boolean) as SplitRow[];
+  if (late.length) groups.push({ title: "Late & Close / vs Starters", rows: late });
+
+  return groups;
+}
+
+function buildPitcherSplitGroups(
+  splits: PlayerPageData["splits"]
+): Array<{ title: string; rows: PitcherSplitRow[] }> {
+  const byCode = new Map<string, MLBPitchingStats>();
+  for (const s of splits) byCode.set(s.code, s.stat as MLBPitchingStats);
+
+  const toRow = (label: string, code: string, highlight = false): PitcherSplitRow | null => {
+    const s = byCode.get(code);
+    if (!s) return null;
+    return {
+      label,
+      era: String(s.era ?? "—"),
+      whip: String(s.whip ?? "—"),
+      k9: String(s.strikeoutsPer9Inn ?? "—"),
+      ip: parseFloat(String(s.inningsPitched ?? "0")) || 0,
+      highlight,
+    };
+  };
+
+  const groups: Array<{ title: string; rows: PitcherSplitRow[] }> = [];
+  const handedness = [toRow("vs LHB", "vl"), toRow("vs RHB", "vr")].filter(Boolean) as PitcherSplitRow[];
+  if (handedness.length) groups.push({ title: "By Handedness", rows: handedness });
+
+  const ha = [toRow("Home", "h"), toRow("Away", "a")].filter(Boolean) as PitcherSplitRow[];
+  if (ha.length) groups.push({ title: "Home / Away", rows: ha });
+
+  const dn = [toRow("Day", "d"), toRow("Night", "n")].filter(Boolean) as PitcherSplitRow[];
+  if (dn.length) groups.push({ title: "Day / Night", rows: dn });
+
+  const risp = [toRow("RISP", "risp", true), toRow("RISP, 2 outs", "rispt2"), toRow("Bases empty", "empty")].filter(Boolean) as PitcherSplitRow[];
+  if (risp.length) groups.push({ title: "Runners On Base", rows: risp });
+
+  const counts = [toRow("2 strikes", "2sk"), toRow("1 strike", "1sk")].filter(Boolean) as PitcherSplitRow[];
+  if (counts.length) groups.push({ title: "By Count", rows: counts });
+
+  const late = [toRow("Innings 7+", "7i")].filter(Boolean) as PitcherSplitRow[];
+  if (late.length) groups.push({ title: "Late & Close", rows: late });
+
+  return groups;
 }
 
 function AdvancedHitterPanel({ hitting }: { hitting: MLBHittingStats }) {
@@ -230,9 +340,19 @@ export default function PlayerPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data, loading } = usePlayer(id ?? "");
-  const [activeTab, setActiveTab] = useState<"stats" | "statcast" | "gamelog" | "career">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "statcast" | "splits" | "gamelog" | "career">("stats");
 
-  const { bio, hitting, pitching, career, gameLog, isPitcher } = data;
+  const { bio, hitting, pitching, career, gameLog, splits, isPitcher } = data;
+
+  const hitterSplitGroups = useMemo(
+    () => (isPitcher ? [] : buildHitterSplitGroups(splits)),
+    [splits, isPitcher]
+  );
+  const pitcherSplitGroups = useMemo(
+    () => (isPitcher ? buildPitcherSplitGroups(splits) : []),
+    [splits, isPitcher]
+  );
+  const hasSplits = isPitcher ? pitcherSplitGroups.length > 0 : hitterSplitGroups.length > 0;
 
   // Trend chart data
   const trendData = gameLog.slice(0, 30).reverse().map((g) => {
@@ -472,18 +592,20 @@ export default function PlayerPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-surface rounded-xl w-fit flex-wrap">
-        {(["stats", "statcast", "gamelog", "career"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize",
-              activeTab === tab ? "bg-teal text-white" : "text-muted hover:text-primary"
-            )}
-          >
-            {tab === "gamelog" ? "Game Log" : tab === "statcast" ? "Statcast" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
+        {(["stats", "statcast", "splits", "gamelog", "career"] as const)
+          .filter((tab) => tab !== "splits" || hasSplits)
+          .map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize",
+                activeTab === tab ? "bg-teal text-white" : "text-muted hover:text-primary"
+              )}
+            >
+              {tab === "gamelog" ? "Game Log" : tab === "statcast" ? "Statcast" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
       </div>
 
       {/* STATS TAB */}
@@ -545,6 +667,15 @@ export default function PlayerPage() {
           isPitcher={isPitcher}
           year={SEASON}
         />
+      )}
+
+      {/* SPLITS TAB */}
+      {activeTab === "splits" && hasSplits && (
+        <div className="fade-up">
+          {isPitcher
+            ? <PitcherSplits groups={pitcherSplitGroups} />
+            : <PlayerSplits groups={hitterSplitGroups} isPitcher={isPitcher} />}
+        </div>
       )}
 
       {/* GAME LOG TAB */}
