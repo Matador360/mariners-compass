@@ -527,3 +527,69 @@ export function isLive(parsed: ParsedLiveGame): boolean {
 export function isFinal(parsed: ParsedLiveGame): boolean {
   return parsed.state === 'Final';
 }
+
+// ─── In-window helper ─────────────────────────────────────────────────────────
+
+function isInGameWindow(state: ParsedLiveGame['state'], gameDate: string): boolean {
+  if (state === 'Live') return true;
+  const gameTime = new Date(gameDate).getTime();
+  const now = Date.now();
+  if (state === 'Preview') return gameTime > now && (gameTime - now) <= 4 * 3_600_000;
+  if (state === 'Final') return (now - gameTime) <= 7 * 3_600_000;
+  return false;
+}
+
+// ─── getTodayGameContext ──────────────────────────────────────────────────────
+
+export async function getTodayGameContext(): Promise<{
+  gamePk: number;
+  state: ParsedLiveGame['state'];
+  gameDate: string;
+} | null> {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+  }).format(new Date());
+
+  const url = `https://statsapi.mlb.com/api/v1/schedule?teamId=136&sportId=1&startDate=${today}&endDate=${today}&hydrate=team`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { next: { revalidate: 30 } });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+
+  const raw: unknown = await res.json();
+  const r = ro(raw);
+  const dates = Array.isArray(r.dates) ? (r.dates as unknown[]) : [];
+
+  for (const dateEntry of dates) {
+    const de = ro(dateEntry);
+    const games = Array.isArray(de.games) ? (de.games as unknown[]) : [];
+
+    for (const game of games) {
+      const g = ro(game);
+      const gamePk = Number(g.gamePk ?? 0);
+      if (!gamePk) continue;
+
+      const statusRaw = ro(g.status);
+      const abstract = String(statusRaw.abstractGameState ?? '');
+      const detailed = String(statusRaw.detailedState ?? '');
+      const gameDate = String(g.gameDate ?? '');
+
+      let state: ParsedLiveGame['state'];
+      if (abstract === 'Final') state = 'Final';
+      else if (abstract === 'Live') state = 'Live';
+      else if (abstract === 'Preview') state = 'Preview';
+      else if (detailed.toLowerCase().includes('postponed')) state = 'Postponed';
+      else state = 'Other';
+
+      if (isInGameWindow(state, gameDate)) {
+        return { gamePk, state, gameDate };
+      }
+    }
+  }
+
+  return null;
+}

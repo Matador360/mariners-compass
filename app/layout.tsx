@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
+import { LiveGameBarServer } from "@/components/live-game-bar-server";
 import { CompassBg } from "@/components/compass-bg";
 import { EasterEggController } from "@/components/easter-eggs";
 import { fetchALWestStandings, fetchSchedule, computeMarinersMood } from "@/lib/mlb-api";
@@ -76,6 +77,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <CompassBg />
         <Navigation mood={moodEmoji} />
+        <LiveGameBarServer />
         <main className="flex-1 container-trident pt-6 pb-nav relative z-10">
           {children}
         </main>
