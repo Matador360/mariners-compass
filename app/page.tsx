@@ -16,7 +16,8 @@ import { BullpenFatigueStrip } from "@/components/bullpen-fatigue-strip";
 import { TridentDivider } from "@/components/trident-logo";
 import type { MLBGame, MLBHittingStats, MLBPitchingStats, MLBStandingsDivision, MLBStandingsTeamRecord } from "@/types/mlb";
 import { pythagWins, pythagLuck, magicNumber, tragicNumber, pace162 } from "@/lib/predictions";
-import { captionForStreak, captionForRunDiff, type Tone } from "@/lib/captions";
+import { captionForStreak, captionForRunDiff } from "@/lib/captions";
+import { loadTone, subscribeTone, type Tone } from "@/lib/tone";
 import type { OutlierFact } from "@/lib/calc-stats";
 
 const BASE = "https://statsapi.mlb.com/api/v1";
@@ -672,8 +673,8 @@ export default function HomePage() {
 
   const [tone, setTone] = useState<Tone>('spicy');
   useEffect(() => {
-    const saved = localStorage.getItem('trident:tone');
-    if (saved === 'family' || saved === 'spicy' || saved === 'profane') setTone(saved as Tone);
+    setTone(loadTone());
+    return subscribeTone(setTone);
   }, []);
 
   return (

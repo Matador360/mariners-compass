@@ -10,7 +10,7 @@ import {
   type SeasonPitchingStats,
   type RelieverProfile,
 } from "@/lib/bullpen";
-import { captionForBullpen } from "@/lib/captions";
+import { BullpenHeroCaption } from "@/components/bullpen-hero-caption";
 import { RelieverCard } from "@/components/reliever-card";
 import { cn } from "@/lib/utils";
 import type { MLBPitchingStats } from "@/types/mlb";
@@ -189,8 +189,6 @@ export default async function BullpenPage() {
   const summary = summarizeBullpen(teamStats, profiles);
 
   const seed = Math.floor(Date.now() / 86400000); // stable per day
-  const captions = captionForBullpen(summary.era, seed, "spicy");
-  const heroCaption = captions[0];
 
   const dread = dreadScore(summary.era, summary.redCount, profiles.length);
 
@@ -208,12 +206,7 @@ export default async function BullpenPage() {
           <h1 className="text-2xl font-black text-primary uppercase tracking-tight">
             Mariners Bullpen
           </h1>
-          {heroCaption && (
-            <p className="text-sm text-muted max-w-md">
-              {heroCaption.emoji && <span className="mr-1">{heroCaption.emoji}</span>}
-              {heroCaption.text}
-            </p>
-          )}
+          <BullpenHeroCaption era={summary.era} seed={seed} />
           <DreadMeter score={dread} />
         </div>
 

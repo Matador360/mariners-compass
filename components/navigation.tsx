@@ -10,7 +10,9 @@ import {
 import { cn } from "@/lib/utils";
 import { TridentLogo } from "./trident-logo";
 import { ThemePicker } from "./theme-picker";
+import { TonePicker } from "./tone-picker";
 import { loadTheme, saveTheme, type ThemeId } from "@/lib/theme-engine";
+import { loadTone, saveTone, subscribeTone, cycleTone, type Tone } from "@/lib/tone";
 
 const PRIMARY_NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -40,6 +42,7 @@ export function Navigation({ mood }: { mood?: string }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [themeValue, setThemeValue] = useState<ThemeId>("auto");
   const [themeResolved, setThemeResolved] = useState<ThemeId | undefined>();
+  const [tone, setTone] = useState<Tone>("spicy");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,6 +80,37 @@ export function Navigation({ mood }: { mood?: string }) {
     setThemeValue(id);
     window.dispatchEvent(new CustomEvent("trident:theme-change", { detail: { id } }));
   }
+
+  useEffect(() => {
+    setTone(loadTone());
+    return subscribeTone(setTone);
+  }, []);
+
+  function handleToneChange(next: Tone) {
+    setTone(next);
+    saveTone(next);
+  }
+
+  // Press T (no modifiers) anywhere outside an editable element to cycle tone.
+  useEffect(() => {
+    function isEditable(el: EventTarget | null): boolean {
+      if (!(el instanceof HTMLElement)) return false;
+      if (el.isContentEditable) return true;
+      const tag = el.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+      const role = el.getAttribute("role");
+      return role === "textbox" || role === "searchbox" || role === "combobox";
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key !== "t" && e.key !== "T") return;
+      if (isEditable(e.target)) return;
+      e.preventDefault();
+      handleToneChange(cycleTone(tone));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tone]);
 
   function openCmdK() {
     window.dispatchEvent(new Event("trident:open-cmdk"));
@@ -210,6 +244,7 @@ export function Navigation({ mood }: { mood?: string }) {
               <Search size={13} />
               <kbd className="font-mono text-[10px] tracking-wide">⌘K</kbd>
             </button>
+            <TonePicker value={tone} onChange={handleToneChange} />
             <ThemePicker
               value={themeValue}
               onChange={handleThemeChange}
@@ -313,7 +348,7 @@ export function Navigation({ mood }: { mood?: string }) {
                 <X size={16} />
               </button>
             </div>
-            <div className="grid grid-cols-4 gap-3 p-5 pb-12">
+            <div className="grid grid-cols-4 gap-3 p-5 pb-4">
               {[...PRIMARY_NAV, ...SECONDARY_NAV].map(({ href, label, icon: Icon }) => {
                 const active = isActive(href);
                 return (
@@ -332,6 +367,21 @@ export function Navigation({ mood }: { mood?: string }) {
                   </Link>
                 );
               })}
+            </div>
+            <div className="px-5 pb-8 pt-2 border-t border-white/[0.06] space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Settings</p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-secondary">Caption tone</span>
+                <TonePicker value={tone} onChange={handleToneChange} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-secondary">Theme</span>
+                <ThemePicker
+                  value={themeValue}
+                  onChange={handleThemeChange}
+                  resolvedId={themeResolved}
+                />
+              </div>
             </div>
           </div>
         </>

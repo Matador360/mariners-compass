@@ -20,7 +20,8 @@ import {
   fetchExpectedStatsLeaderboard,
   type SavantExpected,
 } from "@/lib/savant";
-import { captionForLeagueRank, type Tone } from "@/lib/captions";
+import { captionForLeagueRank } from "@/lib/captions";
+import { loadTone, subscribeTone, type Tone } from "@/lib/tone";
 import { SustainabilityBadge } from "@/components/sustainability-badge";
 import { TheCooler, type CoolerCard } from "@/components/the-cooler";
 import { RankBumpChart } from "@/components/rank-bump-chart";
@@ -674,11 +675,8 @@ export default function PowerRankingsPage() {
   const [tone, setTone] = useState<Tone>("spicy");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("trident:tone");
-    if (stored === "family" || stored === "spicy" || stored === "profane") {
-      setTone(stored);
-    }
+    setTone(loadTone());
+    return subscribeTone(setTone);
   }, []);
 
   const load = useCallback(async () => {
