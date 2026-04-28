@@ -17,13 +17,20 @@ export interface ParsedPitch {
   pitchNumber?: number;
   type?: { code: string; description: string };
   speed?: number;
+  endSpeed?: number;
   spinRate?: number;
+  extension?: number;
   break?: { angle?: number; length?: number; spinDirection?: number };
   coordinates?: { pX?: number; pZ?: number };
+  /** Per-batter strike zone top/bottom in feet, from MLB feed. */
+  zoneTop?: number;
+  zoneBottom?: number;
   zone?: number;
   result?: string;
   description?: string;
   callDescription?: string;
+  /** ISO timestamp of when this pitch was thrown (for sequence ordering / freshness). */
+  startTime?: string;
   hit?: {
     launchSpeed?: number;
     launchAngle?: number;
@@ -100,10 +107,15 @@ export interface ParsedLiveGame {
   score: { home: number; away: number };
   teams: { home: TeamSide; away: TeamSide };
   inning?: number;
+  inningHalf?: 'top' | 'bottom';
   bases?: { first: boolean; second: boolean; third: boolean };
   count?: { balls: number; strikes: number; outs: number };
   currentBatter?: PersonRef;
   currentPitcher?: PersonRef;
+  /** Hand of the current batter ('L' | 'R') and pitcher ('L' | 'R'), if known. */
+  currentMatchup?: { batSide?: 'L' | 'R'; pitchHand?: 'L' | 'R' };
+  /** Index into allPlays for the in-progress at-bat (the most recent play). */
+  currentPlayIndex?: number;
   lastPlay?: PlaySummary;
   weather?: { condition: string; temp: string; wind: string };
   attendance?: number;
@@ -116,6 +128,10 @@ export interface ParsedLiveGame {
   scoringPlayIndices: number[];
   wpaTimeline: WpaPoint[];
   leverageTimeline: LeveragePoint[];
+  /** Server-side timestamp (ms) when this snapshot was parsed. Used for staleness display. */
+  fetchedAt: number;
+  /** MLB feed's metaData.timeStamp (e.g. "20260427_223451") if present. */
+  feedTimestamp?: string;
 }
 
 // ─── 24-State Leverage Table ──────────────────────────────────────────────────
@@ -189,17 +205,22 @@ function parsePitchEvent(e: RawObj, idx: number): ParsedPitch {
     pitchNumber: e.pitchNumber != null ? Number(e.pitchNumber) : undefined,
     type: typeObj.code ? { code: String(typeObj.code), description: String(typeObj.description ?? '') } : undefined,
     speed: pd.startSpeed != null ? Number(pd.startSpeed) : undefined,
+    endSpeed: pd.endSpeed != null ? Number(pd.endSpeed) : undefined,
     spinRate: brk.spinRate != null ? Number(brk.spinRate) : undefined,
+    extension: pd.extension != null ? Number(pd.extension) : undefined,
     break: brk.breakAngle != null ? {
       angle: Number(brk.breakAngle),
       length: brk.breakLength != null ? Number(brk.breakLength) : undefined,
       spinDirection: brk.spinDirection != null ? Number(brk.spinDirection) : undefined,
     } : undefined,
     coordinates: coords.pX != null ? { pX: Number(coords.pX), pZ: coords.pZ != null ? Number(coords.pZ) : undefined } : undefined,
+    zoneTop: pd.strikeZoneTop != null ? Number(pd.strikeZoneTop) : undefined,
+    zoneBottom: pd.strikeZoneBottom != null ? Number(pd.strikeZoneBottom) : undefined,
     zone: pd.zone != null ? Number(pd.zone) : undefined,
     result: det.code ? String(det.code) : undefined,
     description: det.description ? String(det.description) : undefined,
     callDescription: callObj.description ? String(callObj.description) : undefined,
+    startTime: e.startTime ? String(e.startTime) : undefined,
     hit: hitD ? {
       launchSpeed: hitD.launchSpeed != null ? Number(hitD.launchSpeed) : undefined,
       launchAngle: hitD.launchAngle != null ? Number(hitD.launchAngle) : undefined,
@@ -305,6 +326,9 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
   // Live state from linescore
   const offense = ro(lsRaw.offense);
   const inning = lsRaw.currentInning != null ? Number(lsRaw.currentInning) : undefined;
+  const inningHalfRaw = String(lsRaw.inningHalf ?? '').toLowerCase();
+  const inningHalf: 'top' | 'bottom' | undefined =
+    inningHalfRaw === 'top' ? 'top' : inningHalfRaw === 'bottom' ? 'bottom' : undefined;
   const bases = inning != null ? {
     first: offense.first != null,
     second: offense.second != null,
@@ -462,6 +486,31 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
 
   const gamePkResolved = Number(ro(gd.game).pk ?? gamePk);
 
+  // Current matchup hand info — derived from the in-progress play if present.
+  const currentPlayRaw = ro(playsRaw.currentPlay);
+  let currentPlayIndex: number | undefined;
+  if (currentPlayRaw.atBatIndex != null) {
+    const cpAtBat = Number(currentPlayRaw.atBatIndex);
+    const found = allPlays.findIndex(p => p.index === cpAtBat);
+    if (found >= 0) currentPlayIndex = found;
+  }
+  if (currentPlayIndex == null && allPlays.length > 0 && state === 'Live') {
+    // Fall back to the last play if the feed didn't expose currentPlay separately.
+    currentPlayIndex = allPlays.length - 1;
+  }
+
+  let currentMatchup: ParsedLiveGame['currentMatchup'];
+  const liveMatchup = currentPlayIndex != null ? allPlays[currentPlayIndex] : undefined;
+  if (liveMatchup) {
+    const bs = liveMatchup.batSide === 'L' || liveMatchup.batSide === 'R' ? liveMatchup.batSide : undefined;
+    const ph = liveMatchup.pitchHand === 'L' || liveMatchup.pitchHand === 'R' ? liveMatchup.pitchHand : undefined;
+    if (bs || ph) currentMatchup = { batSide: bs, pitchHand: ph };
+  }
+
+  // Feed timestamp (used to detect stale snapshots and as a key for diff polling later).
+  const metaRaw = ro(r.metaData);
+  const feedTimestamp = metaRaw.timeStamp ? String(metaRaw.timeStamp) : undefined;
+
   return {
     gamePk: gamePkResolved,
     state,
@@ -469,10 +518,13 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
     score,
     teams: { home: parseTeamSide(teamsRaw.home), away: parseTeamSide(teamsRaw.away) },
     inning,
+    inningHalf,
     bases,
     count,
     currentBatter,
     currentPitcher,
+    currentMatchup,
+    currentPlayIndex,
     lastPlay,
     weather,
     attendance,
@@ -485,6 +537,8 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
     scoringPlayIndices,
     wpaTimeline,
     leverageTimeline,
+    fetchedAt: Date.now(),
+    feedTimestamp,
   };
 }
 
@@ -493,19 +547,31 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
 export async function fetchLiveGame(gamePk: number): Promise<ParsedLiveGame> {
   const url = `https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`;
 
-  // Initial fetch — use 15s so Live games stay fresh; we warm the correct cache below.
-  const res = await fetch(url, { next: { revalidate: 15 } });
-  if (!res.ok) throw new Error(`fetchLiveGame: HTTP ${res.status} for gamePk ${gamePk}`);
-  const raw: unknown = await res.json();
-  const parsed = parseLiveGame(raw, gamePk);
+  // Initial probe — short revalidate so we don't double-hit MLB on cold loads.
+  // We then re-fetch with no-store if the game is Live so polling stays truly fresh.
+  const probe = await fetch(url, { next: { revalidate: 5 } });
+  if (!probe.ok) throw new Error(`fetchLiveGame: HTTP ${probe.status} for gamePk ${gamePk}`);
+  const probeRaw: unknown = await probe.json();
+  const probeParsed = parseLiveGame(probeRaw, gamePk);
 
-  // Warm the long-term cache with the correct TTL for this game state.
-  const revalidate = parsed.state === 'Final' ? 86400 : parsed.state === 'Preview' ? 60 : 15;
-  if (revalidate !== 15) {
+  if (probeParsed.state !== 'Live') {
+    // Not live — warm a longer-lived cache and return the probe.
+    const revalidate = probeParsed.state === 'Final' ? 86400 : probeParsed.state === 'Preview' ? 60 : 30;
     void fetch(url, { next: { revalidate } }).then(r => r.json()).catch(() => undefined);
+    return probeParsed;
   }
 
-  return parsed;
+  // Live: bypass any framework cache so the client gets a fresh snapshot every poll.
+  try {
+    const fresh = await fetch(url, { cache: 'no-store' });
+    if (fresh.ok) {
+      const freshRaw: unknown = await fresh.json();
+      return parseLiveGame(freshRaw, gamePk);
+    }
+  } catch {
+    // fall through to probe data
+  }
+  return probeParsed;
 }
 
 // ─── Derived utilities ────────────────────────────────────────────────────────
