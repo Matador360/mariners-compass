@@ -1,17 +1,20 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { ParsedLiveGame, ParsedPitch } from '@/lib/live-game';
+import type { ParsedLiveGame, ParsedPitch, PersonRef } from '@/lib/live-game';
 import {
   currentAtBat,
   categorizePitch,
   PITCH_COLORS,
   PITCH_LABELS,
   pitchCountToday,
+  pitcherStatsToday,
+  batterLineToday,
   sequenceSummary,
   type PitchCategory,
 } from '@/lib/at-bat';
 import { useBatterContext } from '@/lib/batter-context';
+import { usePitcherContext } from '@/lib/pitcher-context';
 import { StrikeZoneLive } from './charts/strike-zone-live';
 
 function playerImg(id: number) {
@@ -50,6 +53,47 @@ function PitchPill({ p, idx }: { p: ParsedPitch; idx: number }) {
   );
 }
 
+function NextUpRow({
+  label,
+  person,
+  jersey,
+  position,
+}: {
+  label: string;
+  person: PersonRef;
+  jersey?: string;
+  position?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={playerImg(person.id)}
+        alt={person.fullName}
+        width={32}
+        height={32}
+        className="h-8 w-8 rounded-full border border-white/10 bg-white/5 object-cover flex-shrink-0"
+        onError={e => {
+          (e.target as HTMLImageElement).style.visibility = 'hidden';
+        }}
+      />
+      <div className="min-w-0">
+        <div className="text-[9px] uppercase tracking-wider text-gray-500">{label}</div>
+        <div className="text-xs font-semibold text-gray-200 truncate leading-tight">
+          {person.fullName}
+        </div>
+        {(jersey || position) && (
+          <div className="text-[10px] text-gray-500 leading-tight">
+            {jersey && `#${jersey}`}
+            {jersey && position && ' · '}
+            {position}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   game: ParsedLiveGame;
 }
@@ -57,19 +101,19 @@ interface Props {
 export function LiveAtBat({ game }: Props) {
   const ab = useMemo(() => currentAtBat(game), [game]);
   const batterId = ab?.play.batter.id ?? game.currentBatter?.id;
+  const pitcherId = ab?.play.pitcher.id ?? game.currentPitcher?.id;
   const batter = useBatterContext(batterId);
+  const pitcher = usePitcherContext(pitcherId);
 
   if (!ab) return null;
   if (game.state !== 'Live' && !ab.isComplete) return null;
 
   const { play, pitches, zone } = ab;
-  const pitcherCount = pitchCountToday(game, play.pitcher.id);
   const balls = game.count?.balls ?? 0;
   const strikes = game.count?.strikes ?? 0;
   const outs = game.count?.outs ?? 0;
   const halfLabel = game.inningHalf === 'top' ? 'Top' : game.inningHalf === 'bottom' ? 'Bot' : '';
 
-  // Distribution of categories in this AB for the mini-legend.
   const dist = pitches.reduce<Record<PitchCategory, number>>(
     (acc, p) => {
       const c = categorizePitch(p);
@@ -79,12 +123,18 @@ export function LiveAtBat({ game }: Props) {
     {} as Record<PitchCategory, number>,
   );
 
-  // Batter season slash from estimated stats (xBA/xSLG/xwOBA).
-  const exp = batter.expected;
-
-  // Hand badge — derive from current matchup or play-level info.
   const batSide = game.currentMatchup?.batSide ?? (play.batSide as 'L' | 'R' | undefined);
   const pitchHand = game.currentMatchup?.pitchHand ?? (play.pitchHand as 'L' | 'R' | undefined);
+
+  const batterMeta = game.players?.[play.batter.id];
+  const pitcherMeta = game.players?.[play.pitcher.id];
+  const onDeckMeta = game.onDeck ? game.players?.[game.onDeck.id] : undefined;
+  const inHoleMeta = game.inHole ? game.players?.[game.inHole.id] : undefined;
+
+  const batterLine = batterLineToday(game, play.batter.id);
+  const pitcherLine = pitcherStatsToday(game, play.pitcher.id);
+  const pitcherSeason = pitcher.seasonStats;
+  const batterSeason = batter.seasonStats;
 
   return (
     <div className="trident-card trident-card-glow p-4 space-y-3">
@@ -117,55 +167,76 @@ export function LiveAtBat({ game }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr_auto] gap-4 items-start">
         {/* Batter card */}
         <div className="flex items-start gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={playerImg(play.batter.id)}
             alt={play.batter.fullName}
-            width={56}
-            height={56}
-            className="h-14 w-14 rounded-full border border-white/10 bg-white/5 object-cover flex-shrink-0"
+            width={64}
+            height={64}
+            className="h-16 w-16 rounded-full border border-white/10 bg-white/5 object-cover flex-shrink-0"
             onError={e => {
               (e.target as HTMLImageElement).style.visibility = 'hidden';
             }}
           />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-gray-500">Batting</div>
-            <div className="font-semibold text-sm leading-tight truncate">
-              {play.batter.fullName}
+            <div className="text-[10px] uppercase tracking-wider text-gray-500">At bat</div>
+            <div className="font-semibold text-sm leading-tight">
+              <span className="truncate">{play.batter.fullName}</span>
+              {batterMeta?.jerseyNumber && (
+                <span className="text-gray-500 ml-1.5 font-normal">
+                  #{batterMeta.jerseyNumber}
+                </span>
+              )}
+              {batterMeta?.position && (
+                <span className="text-gray-500 ml-1 font-normal">{batterMeta.position}</span>
+              )}
               {batSide && <span className="text-gray-500 ml-1.5 font-normal">{batSide}HH</span>}
             </div>
-            <div className="mt-1 grid grid-cols-3 gap-x-2 text-xs tabular-nums">
-              <div>
-                <div className="text-[9px] uppercase tracking-wider text-gray-500">xBA</div>
-                <div className="font-semibold text-gray-200">
-                  {exp?.estBA != null ? exp.estBA.toFixed(3).replace(/^0/, '') : '—'}
-                </div>
-              </div>
-              <div>
-                <div className="text-[9px] uppercase tracking-wider text-gray-500">xSLG</div>
-                <div className="font-semibold text-gray-200">
-                  {exp?.estSLG != null ? exp.estSLG.toFixed(3).replace(/^0/, '') : '—'}
-                </div>
-              </div>
-              <div>
-                <div className="text-[9px] uppercase tracking-wider text-gray-500">xwOBA</div>
-                <div className="font-semibold text-gray-200">
-                  {exp?.estWOBA != null ? exp.estWOBA.toFixed(3).replace(/^0/, '') : '—'}
-                </div>
-              </div>
+            <div className="mt-1 text-xs text-gray-300 tabular-nums">
+              <span className="font-semibold text-gray-100">{batterLine.hab}</span>
+              {batterSeason && (
+                <span className="text-gray-400">
+                  {batterSeason.avg && `, ${batterSeason.avg} AVG`}
+                  {batterSeason.ops && `, ${batterSeason.ops} OPS`}
+                  {batterSeason.homeRuns != null && `, ${batterSeason.homeRuns} HR`}
+                </span>
+              )}
+              {!batterSeason && batter.loading && (
+                <span className="text-gray-600 italic ml-1">loading…</span>
+              )}
             </div>
+            {/* Statcast expected line */}
+            {batter.expected && (
+              <div className="mt-1 grid grid-cols-3 gap-x-2 text-[11px] tabular-nums max-w-[200px]">
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider text-gray-500">xBA</div>
+                  <div className="font-semibold text-gray-200">
+                    {batter.expected.estBA != null ? batter.expected.estBA.toFixed(3).replace(/^0/, '') : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider text-gray-500">xSLG</div>
+                  <div className="font-semibold text-gray-200">
+                    {batter.expected.estSLG != null ? batter.expected.estSLG.toFixed(3).replace(/^0/, '') : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider text-gray-500">xwOBA</div>
+                  <div className="font-semibold text-gray-200">
+                    {batter.expected.estWOBA != null ? batter.expected.estWOBA.toFixed(3).replace(/^0/, '') : '—'}
+                  </div>
+                </div>
+              </div>
+            )}
             {batter.summary && (
               <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-gray-500 tabular-nums">
                 <span>EV {batter.summary.avgExitVelo.toFixed(1)}</span>
                 <span>HH {batter.summary.hardHitPct.toFixed(0)}%</span>
                 <span>BRL {batter.summary.brlPct.toFixed(1)}%</span>
               </div>
-            )}
-            {batter.loading && (
-              <div className="mt-1 text-[10px] text-gray-600">loading season data…</div>
             )}
           </div>
         </div>
@@ -182,38 +253,91 @@ export function LiveAtBat({ game }: Props) {
         </div>
 
         {/* Pitcher card */}
-        <div className="flex items-start gap-3 sm:flex-row-reverse sm:text-right">
+        <div className="flex items-start gap-3 lg:flex-row-reverse lg:text-right">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={playerImg(play.pitcher.id)}
             alt={play.pitcher.fullName}
-            width={56}
-            height={56}
-            className="h-14 w-14 rounded-full border border-white/10 bg-white/5 object-cover flex-shrink-0"
+            width={64}
+            height={64}
+            className="h-16 w-16 rounded-full border border-white/10 bg-white/5 object-cover flex-shrink-0"
             onError={e => {
               (e.target as HTMLImageElement).style.visibility = 'hidden';
             }}
           />
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-wider text-gray-500">Pitching</div>
-            <div className="font-semibold text-sm leading-tight truncate">
-              {play.pitcher.fullName}
+            <div className="font-semibold text-sm leading-tight">
+              <span className="truncate">{play.pitcher.fullName}</span>
+              {pitcherMeta?.jerseyNumber && (
+                <span className="text-gray-500 ml-1.5 font-normal">
+                  #{pitcherMeta.jerseyNumber}
+                </span>
+              )}
+              {pitcherMeta?.position && (
+                <span className="text-gray-500 ml-1 font-normal">{pitcherMeta.position}</span>
+              )}
               {pitchHand && (
                 <span className="text-gray-500 ml-1.5 font-normal">{pitchHand}HP</span>
               )}
             </div>
-            <div className="mt-1 grid grid-cols-2 gap-x-2 text-xs tabular-nums sm:justify-items-end">
+            <div className="mt-1 text-xs text-gray-300 tabular-nums">
+              <span className="font-semibold text-gray-100">{pitcherLine.ip} IP</span>
+              <span className="text-gray-400">
+                {' '}({pitcherLine.pitches}P {pitcherLine.strikes}S)
+              </span>
+              {pitcherSeason && (
+                <span className="text-gray-400">, {pitcherSeason.era} ERA</span>
+              )}
+              {!pitcherSeason && pitcher.loading && (
+                <span className="text-gray-600 italic ml-1">loading…</span>
+              )}
+            </div>
+            <div className="mt-1 grid grid-cols-3 gap-x-2 text-[11px] tabular-nums max-w-[200px] lg:ml-auto">
               <div>
-                <div className="text-[9px] uppercase tracking-wider text-gray-500">Pitches</div>
-                <div className="font-semibold text-gray-200">{pitcherCount}</div>
+                <div className="text-[9px] uppercase tracking-wider text-gray-500">K</div>
+                <div className="font-semibold text-gray-200">{pitcherLine.strikeouts}</div>
               </div>
               <div>
-                <div className="text-[9px] uppercase tracking-wider text-gray-500">This AB</div>
-                <div className="font-semibold text-gray-200">{pitches.length}</div>
+                <div className="text-[9px] uppercase tracking-wider text-gray-500">BB</div>
+                <div className="font-semibold text-gray-200">{pitcherLine.walks}</div>
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-gray-500">H</div>
+                <div className="font-semibold text-gray-200">{pitcherLine.hits}</div>
               </div>
             </div>
+            {pitcherSeason && (
+              <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-gray-500 tabular-nums lg:justify-end">
+                <span>{pitcherSeason.whip} WHIP</span>
+                <span>{pitcherSeason.strikeoutsPer9Inn} K/9</span>
+                <span>{pitcherSeason.wins}-{pitcherSeason.losses}</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* On-deck / in-hole sidebar */}
+        {(game.onDeck || game.inHole) && (
+          <div className="flex flex-row lg:flex-col gap-3 lg:gap-2 lg:border-l lg:border-white/5 lg:pl-3">
+            {game.onDeck && (
+              <NextUpRow
+                label="On Deck"
+                person={game.onDeck}
+                jersey={onDeckMeta?.jerseyNumber}
+                position={onDeckMeta?.position}
+              />
+            )}
+            {game.inHole && (
+              <NextUpRow
+                label="In The Hole"
+                person={game.inHole}
+                jersey={inHoleMeta?.jerseyNumber}
+                position={inHoleMeta?.position}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Pitch sequence strip */}
@@ -233,7 +357,7 @@ export function LiveAtBat({ game }: Props) {
         </div>
       )}
 
-      {/* Pitch category legend / mini-distribution */}
+      {/* Pitch category legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 border-t border-white/5 pt-2">
         {(Object.keys(PITCH_LABELS) as PitchCategory[]).map(cat => {
           const n = dist[cat] ?? 0;
@@ -245,6 +369,9 @@ export function LiveAtBat({ game }: Props) {
             </span>
           );
         })}
+        <span className="ml-auto text-gray-600 tabular-nums">
+          {pitchCountToday(game, play.pitcher.id)} pitches today
+        </span>
       </div>
 
       {/* If the AB just ended, surface the result. */}

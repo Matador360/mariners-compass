@@ -7,6 +7,7 @@ import { WpCurve } from '@/components/charts/wp-curve';
 import { LeverageSpikes } from '@/components/leverage-spikes';
 import { PlayByPlay } from '@/components/play-by-play';
 import { LiveAtBat } from '@/components/live-at-bat';
+import { Linescore } from '@/components/linescore';
 import { PitcherArsenalLive } from '@/components/pitcher-arsenal-live';
 import { UmpireScorecard } from '@/components/umpire-scorecard';
 import { LiveContactQuality } from '@/components/live-contact-quality';
@@ -76,6 +77,7 @@ export function GameClient({ initialData }: { initialData: ParsedLiveGame }) {
     <div className="space-y-4 pb-8">
       <GameHeader game={game} />
       {isLive && <FreshnessBadge fetchedAt={game.fetchedAt} />}
+      {(isLive || game.state === 'Final') && <Linescore game={game} liveOnly />}
       {isLive && <LiveAtBat game={game} />}
       {isLive && (
         <PitcherArsenalLive
