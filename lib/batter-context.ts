@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { SavantPitch, BatterStatcastSummary } from './savant';
 import { computeBatterStatcastSummary, batterZoneStats } from './savant';
+import type { MLBHittingStats } from '@/types/mlb';
 
 interface SavantBatterResponse {
   pitches: SavantPitch[];
@@ -15,6 +16,7 @@ interface SavantBatterResponse {
     avgExitVelo?: number;
   } | null;
   sprintSpeed: number | null;
+  seasonStats: MLBHittingStats | null;
 }
 
 export interface BatterContext {
@@ -26,6 +28,7 @@ export interface BatterContext {
   zoneStats: ReturnType<typeof batterZoneStats>;
   summary: BatterStatcastSummary | null;
   expected: SavantBatterResponse['expected'];
+  seasonStats: MLBHittingStats | null;
   totalPitches: number;
 }
 
@@ -54,6 +57,7 @@ const EMPTY: BatterContext = {
   zoneStats: [],
   summary: null,
   expected: null,
+  seasonStats: null,
   totalPitches: 0,
 };
 
@@ -85,6 +89,7 @@ export function useBatterContext(batterId: number | undefined): BatterContext {
           zoneStats,
           summary,
           expected: data.expected,
+          seasonStats: data.seasonStats ?? null,
           totalPitches: data.pitches.length,
         });
       })

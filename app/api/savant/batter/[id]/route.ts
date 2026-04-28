@@ -4,6 +4,8 @@ import {
   fetchExpectedStatsLeaderboard,
   fetchSprintSpeed,
 } from '@/lib/savant';
+import { fetchPlayerSeasonStats } from '@/lib/mlb-api';
+import type { MLBHittingStats } from '@/types/mlb';
 
 export async function GET(
   _req: Request,
@@ -17,19 +19,23 @@ export async function GET(
 
   const year = new Date().getFullYear();
 
-  const [pitchesRes, expectedRes, speedRes] = await Promise.allSettled([
+  const [pitchesRes, expectedRes, speedRes, seasonRes] = await Promise.allSettled([
     fetchBatterStatcast(playerId, year),
     fetchExpectedStatsLeaderboard(year),
     fetchSprintSpeed(playerId, year),
+    fetchPlayerSeasonStats(playerId, 'hitting'),
   ]);
 
   const pitches = pitchesRes.status === 'fulfilled' ? pitchesRes.value : [];
   const expectedAll = expectedRes.status === 'fulfilled' ? expectedRes.value : [];
   const expected = expectedAll.find(r => r.playerId === playerId) ?? null;
   const sprintSpeed = speedRes.status === 'fulfilled' ? speedRes.value : null;
+  const seasonStats = seasonRes.status === 'fulfilled'
+    ? (seasonRes.value as MLBHittingStats | null)
+    : null;
 
   return NextResponse.json(
-    { pitches, expected, sprintSpeed },
+    { pitches, expected, sprintSpeed, seasonStats },
     { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' } },
   );
 }
