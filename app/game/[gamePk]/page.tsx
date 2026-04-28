@@ -36,7 +36,7 @@ export default async function GamePage({ params }: Props) {
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-6">
+    <main className="max-w-3xl mx-auto px-4 py-6">
       <GameClient initialData={game} />
     </main>
   );
