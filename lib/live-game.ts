@@ -112,8 +112,13 @@ export interface ParsedLiveGame {
   count?: { balls: number; strikes: number; outs: number };
   currentBatter?: PersonRef;
   currentPitcher?: PersonRef;
+  /** Next two batters in the lineup (catcher's POV: on-deck steps in next, in-hole follows). */
+  onDeck?: PersonRef;
+  inHole?: PersonRef;
   /** Hand of the current batter ('L' | 'R') and pitcher ('L' | 'R'), if known. */
   currentMatchup?: { batSide?: 'L' | 'R'; pitchHand?: 'L' | 'R' };
+  /** Per-player jersey number + primary position from the boxscore players map. */
+  players?: Record<number, { jerseyNumber?: string; position?: string }>;
   /** Index into allPlays for the in-progress at-bat (the most recent play). */
   currentPlayIndex?: number;
   lastPlay?: PlaySummary;
@@ -341,6 +346,29 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
   } : undefined;
   const currentBatter = parsePersonRef(offense.batter);
   const currentPitcher = parsePersonRef(offense.pitcher);
+  const onDeck = parsePersonRef(offense.onDeck);
+  const inHole = parsePersonRef(offense.inHole);
+
+  // Per-player jersey + position from boxscore players map.
+  const players: Record<number, { jerseyNumber?: string; position?: string }> = {};
+  const collectSide = (sideRaw: unknown) => {
+    const side = ro(sideRaw);
+    const playersMap = ro(side.players);
+    for (const key of Object.keys(playersMap)) {
+      const pl = ro(playersMap[key]);
+      const person = ro(pl.person);
+      const id = Number(person.id ?? 0);
+      if (!id) continue;
+      const pos = ro(pl.position);
+      players[id] = {
+        jerseyNumber: pl.jerseyNumber ? String(pl.jerseyNumber) : undefined,
+        position: pos.abbreviation ? String(pos.abbreviation) : undefined,
+      };
+    }
+  };
+  const bsTeams = ro(bs.teams);
+  collectSide(bsTeams.home);
+  collectSide(bsTeams.away);
 
   // Plays
   const playsRaw = ro(ld.plays);
@@ -523,7 +551,10 @@ export function parseLiveGame(raw: unknown, gamePk: number): ParsedLiveGame {
     count,
     currentBatter,
     currentPitcher,
+    onDeck,
+    inHole,
     currentMatchup,
+    players: Object.keys(players).length > 0 ? players : undefined,
     currentPlayIndex,
     lastPlay,
     weather,

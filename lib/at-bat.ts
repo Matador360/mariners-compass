@@ -227,6 +227,127 @@ export function pitchCountToday(game: ParsedLiveGame, pitcherId?: number): numbe
   return n;
 }
 
+// ─── Today's stat lines ──────────────────────────────────────────────────────
+
+export interface PitcherTodayStats {
+  pitches: number;
+  strikes: number;
+  balls: number;
+  /** Outs the pitcher recorded today; IP = outs/3 (formatted as MLB "x.y"). */
+  outs: number;
+  ip: string;
+  hits: number;
+  runs: number;
+  earnedRuns: number;       // Approximation: same as runs (true ER requires reconstruction).
+  walks: number;
+  strikeouts: number;
+  homeRuns: number;
+  battersFaced: number;
+}
+
+const HIT_EVENTS = new Set(['single', 'double', 'triple', 'home_run']);
+
+function formatIp(outs: number): string {
+  const whole = Math.floor(outs / 3);
+  const frac = outs % 3;
+  return `${whole}.${frac}`;
+}
+
+export function pitcherStatsToday(
+  game: ParsedLiveGame,
+  pitcherId?: number,
+): PitcherTodayStats {
+  const empty: PitcherTodayStats = {
+    pitches: 0, strikes: 0, balls: 0, outs: 0, ip: '0.0',
+    hits: 0, runs: 0, earnedRuns: 0, walks: 0, strikeouts: 0,
+    homeRuns: 0, battersFaced: 0,
+  };
+  if (!pitcherId) return empty;
+
+  let pitches = 0, strikes = 0, balls = 0, outs = 0;
+  let hits = 0, runs = 0, walks = 0, strikeouts = 0, homeRuns = 0, battersFaced = 0;
+
+  let prevHome = 0;
+  let prevAway = 0;
+  for (const play of game.allPlays) {
+    if (play.pitcher.id !== pitcherId) {
+      prevHome = play.homeScore;
+      prevAway = play.awayScore;
+      continue;
+    }
+    battersFaced++;
+    for (const p of play.pitches) {
+      pitches++;
+      const cat = categorizePitch(p);
+      if (cat === 'ball' || cat === 'hit-by-pitch') balls++;
+      else if (cat) strikes++;
+    }
+    if (play.isComplete) {
+      const ev = (play.eventType ?? play.event ?? '').toLowerCase().replace(/\s+/g, '_');
+      if (HIT_EVENTS.has(ev)) hits++;
+      if (ev === 'home_run') homeRuns++;
+      if (ev.includes('walk') || ev === 'hit_by_pitch') walks++;
+      if (ev.includes('strikeout')) strikeouts++;
+      // Outs recorded: scoreboard outs delta is most reliable, but allPlays
+      // doesn't track outs at the play level. Use eventType heuristics.
+      if (ev.includes('strikeout') || ev.endsWith('out') || ev.includes('groundout') ||
+          ev.includes('flyout') || ev.includes('lineout') || ev.includes('forceout') ||
+          ev.includes('field_out') || ev.includes('pop_out') || ev.includes('sac_fly') ||
+          ev.includes('sac_bunt')) {
+        outs++;
+        if (ev === 'grounded_into_double_play' || ev === 'double_play') outs++;
+        if (ev === 'triple_play') outs += 2;
+      }
+      const runsThisPlay = (play.homeScore - prevHome) + (play.awayScore - prevAway);
+      if (runsThisPlay > 0) runs += runsThisPlay;
+    }
+    prevHome = play.homeScore;
+    prevAway = play.awayScore;
+  }
+
+  return {
+    pitches, strikes, balls, outs, ip: formatIp(outs),
+    hits, runs, earnedRuns: runs, walks, strikeouts, homeRuns, battersFaced,
+  };
+}
+
+export interface BatterTodayLine {
+  ab: number;
+  hits: number;
+  homeRuns: number;
+  walks: number;
+  strikeouts: number;
+  rbi: number;
+  /** Convenience formatted "H-AB" string. */
+  hab: string;
+}
+
+const ON_BASE_NON_AB = new Set(['walk', 'hit_by_pitch', 'sac_fly', 'sac_bunt', 'catcher_interf', 'intent_walk']);
+
+export function batterLineToday(
+  game: ParsedLiveGame,
+  batterId?: number,
+): BatterTodayLine {
+  const empty: BatterTodayLine = { ab: 0, hits: 0, homeRuns: 0, walks: 0, strikeouts: 0, rbi: 0, hab: '0-0' };
+  if (!batterId) return empty;
+
+  let ab = 0, hits = 0, homeRuns = 0, walks = 0, strikeouts = 0, rbi = 0;
+
+  for (const play of game.allPlays) {
+    if (play.batter.id !== batterId) continue;
+    if (!play.isComplete) continue;
+    const ev = (play.eventType ?? play.event ?? '').toLowerCase().replace(/\s+/g, '_');
+    if (ev.includes('walk')) walks++;
+    if (ev.includes('strikeout')) strikeouts++;
+    if (ev === 'home_run') homeRuns++;
+    if (HIT_EVENTS.has(ev)) hits++;
+    if (!ON_BASE_NON_AB.has(ev) && ev !== '') ab++;
+    rbi += play.rbi ?? 0;
+  }
+
+  return { ab, hits, homeRuns, walks, strikeouts, rbi, hab: `${hits}-${ab}` };
+}
+
 // ─── Umpire scorecard ────────────────────────────────────────────────────────
 
 export interface UmpireScorecard {
