@@ -725,3 +725,257 @@ main { animation: page-in 0.32s ease-out; }
   background: radial-gradient(ellipse, rgba(0, 163, 163, 0.05) 0%, transparent 70%);
   animation: aurora-drift 22s ease-in-out 8s infinite alternate;
 }
+
+/* ─── Calendar skins ────────────────────────────────────────────────────────
+ * Triggered automatically on specific dates by ThemeApplier. Override the
+ * user's chosen theme via [data-theme="..."]. Decorations target opt-in
+ * classes (.streak-counter, .streak-tracker) so they land on the right spot.
+ * Each decoration honors prefers-reduced-motion.
+ */
+
+/* Felix Perfect Game — Aug 15. Gold accents + subtle baseball-stitch pattern.
+ * K-card stack appears next to the .streak-counter. */
+[data-theme="felix-perfect"] {
+  --tt-bg: #1a1300;
+  --tt-bg-elevated: #2a2200;
+  --tt-bg-glass: rgba(40, 32, 0, 0.62);
+  --tt-fg: #fde68a;
+  --tt-fg-muted: #ca8a04;
+  --tt-accent: #fbbf24;
+  --tt-accent-2: #c79b00;
+  --tt-danger: #dc2626;
+  --tt-success: #84cc16;
+  --tt-border: rgba(251, 191, 36, 0.30);
+  --tt-overlay-gradient:
+    radial-gradient(ellipse at 50% 0%, rgba(251, 191, 36, 0.15), transparent 60%);
+}
+/* Subtle baseball-stitch background. Inline SVG, low opacity. */
+[data-theme="felix-perfect"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><g fill='none' stroke='%23fbbf24' stroke-width='1.4' stroke-linecap='round' opacity='0.55'><path d='M4 20 Q 8 14 12 20 T 20 20'/><path d='M28 20 Q 32 14 36 20 T 44 20'/><path d='M52 20 Q 56 14 60 20 T 68 20'/></g></svg>");
+  background-size: 80px 40px;
+  background-repeat: repeat;
+  opacity: 0.06;
+  mix-blend-mode: screen;
+}
+/* K-card stack on the streak counter. */
+[data-theme="felix-perfect"] .streak-counter {
+  position: relative;
+}
+[data-theme="felix-perfect"] .streak-counter::before {
+  content: "K\AK\AK";
+  white-space: pre;
+  position: absolute;
+  top: -8px;
+  right: -22px;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+  color: #1a1300;
+  background: linear-gradient(180deg, #fde047 0%, #fbbf24 100%);
+  padding: 4px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3), 0 0 0 2px rgba(0,0,0,0.5);
+  transform: rotate(6deg);
+  pointer-events: none;
+}
+
+/* Edgar's Double — Oct 8. Deep navy + warm amber. One-shot double-arrow
+ * sweep on first load. Animation runs once and stops (animation-fill-mode:
+ * forwards keeps the end state). The component itself controls whether to
+ * render via sessionStorage so it's truly never-repeating per session. */
+[data-theme="edgars-double"] {
+  --tt-bg: #0a1628;
+  --tt-bg-elevated: #122140;
+  --tt-bg-glass: rgba(15, 30, 60, 0.62);
+  --tt-fg: #fde68a;
+  --tt-fg-muted: #b8a380;
+  --tt-accent: #fbbf24;
+  --tt-accent-2: #f59e0b;
+  --tt-danger: #ef4444;
+  --tt-success: #84cc16;
+  --tt-border: rgba(251, 191, 36, 0.22);
+  --tt-overlay-gradient:
+    radial-gradient(ellipse at 30% 100%, rgba(251, 191, 36, 0.12), transparent 55%),
+    radial-gradient(ellipse at 80% 0%, rgba(12, 44, 86, 0.40), transparent 50%);
+}
+@keyframes edgars-arrow-sweep {
+  0%   { transform: translate(-30vw, 0); opacity: 0; }
+  10%  { opacity: 0.8; }
+  90%  { opacity: 0.8; }
+  100% { transform: translate(120vw, 0); opacity: 0; }
+}
+.edgars-arrow-once {
+  position: fixed;
+  top: 38vh;
+  left: 0;
+  z-index: 5;
+  pointer-events: none;
+  font-family: var(--font-grotesk);
+  font-weight: 900;
+  font-size: clamp(48px, 8vw, 120px);
+  letter-spacing: -0.04em;
+  color: #fbbf24;
+  text-shadow: 0 0 40px rgba(251, 191, 36, 0.6);
+  animation: edgars-arrow-sweep 3.2s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .edgars-arrow-once { animation: none; opacity: 0; }
+}
+
+/* Griffey's Birthday — Nov 21. Reds-tinged gradient. Floating "24" + bat
+ * silhouette in the corner. */
+[data-theme="griffey-birthday"] {
+  --tt-bg: #1a0a0a;
+  --tt-bg-elevated: #2a1414;
+  --tt-bg-glass: rgba(50, 18, 18, 0.62);
+  --tt-fg: #fef2f2;
+  --tt-fg-muted: #fca5a5;
+  --tt-accent: #f87171;
+  --tt-accent-2: #fbbf24;
+  --tt-danger: #b91c1c;
+  --tt-success: #86efac;
+  --tt-border: rgba(248, 113, 113, 0.22);
+  --tt-overlay-gradient:
+    radial-gradient(ellipse at 80% 20%, rgba(220, 38, 38, 0.18), transparent 55%),
+    radial-gradient(ellipse at 20% 80%, rgba(248, 113, 113, 0.10), transparent 60%);
+}
+[data-theme="griffey-birthday"] body::before {
+  content: "24";
+  position: fixed;
+  top: 16vh;
+  right: 6vw;
+  z-index: -1;
+  font-family: var(--font-grotesk);
+  font-weight: 900;
+  font-size: clamp(180px, 28vw, 420px);
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  color: #fff;
+  opacity: 0.05;
+  pointer-events: none;
+}
+[data-theme="griffey-birthday"] body::after {
+  content: "";
+  position: fixed;
+  bottom: 8vh;
+  left: 4vw;
+  width: clamp(120px, 18vw, 240px);
+  height: clamp(120px, 18vw, 240px);
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23ffffff'><path d='M82 14 L 76 8 Q 72 6 68 8 L 60 16 Q 54 20 48 28 L 14 70 Q 8 76 12 82 Q 18 88 24 82 L 58 40 Q 64 32 70 26 L 78 18 Q 84 14 82 14 Z' opacity='0.06'/><circle cx='80' cy='12' r='5' fill='%23ffffff' opacity='0.08'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  transform: rotate(-12deg);
+}
+
+/* Ichiro HoF — Jul 27. Japanese sun motif accent + samurai stripe border on
+ * the streak tracker. */
+[data-theme="ichiro-hof"] {
+  --tt-bg: #1a0f1a;
+  --tt-bg-elevated: #2a1a2a;
+  --tt-bg-glass: rgba(40, 22, 40, 0.62);
+  --tt-fg: #fef2f2;
+  --tt-fg-muted: #fda4af;
+  --tt-accent: #ef4444;
+  --tt-accent-2: #f8fafc;
+  --tt-danger: #b91c1c;
+  --tt-success: #86efac;
+  --tt-border: rgba(239, 68, 68, 0.25);
+  --tt-overlay-gradient:
+    radial-gradient(circle at 85% 18%, rgba(239, 68, 68, 0.20), transparent 28%),
+    radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.06), transparent 65%);
+}
+[data-theme="ichiro-hof"] .streak-tracker {
+  border: 0;
+  position: relative;
+}
+[data-theme="ichiro-hof"] .streak-tracker::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    -45deg,
+    #ef4444 0px,
+    #ef4444 6px,
+    #f8fafc 6px,
+    #f8fafc 12px,
+    #1a0f1a 12px,
+    #1a0f1a 18px
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  padding: 2px;
+  opacity: 0.55;
+}
+
+/* Pilots Flash — Apr 1. The skin tokens are subdued (Pilots-yellow accent)
+ * but the joke is the one-shot full-screen flash, controlled by the
+ * <PilotsFlash/> client component below the nav. The CSS here only defines
+ * the keyframes the component triggers. */
+[data-theme="pilots-flash"] {
+  --tt-bg: #15110a;
+  --tt-bg-elevated: #2a2014;
+  --tt-bg-glass: rgba(40, 32, 18, 0.62);
+  --tt-fg: #fef9c3;
+  --tt-fg-muted: #ca8a04;
+  --tt-accent: #facc15;
+  --tt-accent-2: #1e3a8a;
+  --tt-danger: #dc2626;
+  --tt-success: #84cc16;
+  --tt-border: rgba(250, 204, 21, 0.20);
+  --tt-overlay-gradient: none;
+}
+@keyframes pilots-flash-once {
+  0%   { opacity: 0; }
+  8%   { opacity: 0.92; }
+  60%  { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+.pilots-flash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, #facc15 0%, #ca8a04 60%, transparent 100%);
+  animation: pilots-flash-once 3s ease-out forwards;
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pilots-flash-overlay { animation: none; opacity: 0; }
+}
+
+/* Skin banner — small dismissible chip at the top of the page. */
+.skin-banner {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(251, 191, 36, 0.10),
+    rgba(251, 191, 36, 0.18),
+    rgba(251, 191, 36, 0.10)
+  );
+  border-bottom: 1px solid rgba(251, 191, 36, 0.25);
+  color: var(--tt-fg);
+  font-family: var(--font-grotesk);
+}

@@ -154,7 +154,7 @@ function RecordBadge({ wins, losses, streak, streakType }: { wins: number; losse
   const isLoseStreak = streakType === "L";
 
   return (
-    <div className={`card-gradient-border p-5 flex items-center gap-6 ${isWinStreak ? "streak-banner" : ""}`}>
+    <div className={`streak-counter card-gradient-border p-5 flex items-center gap-6 ${isWinStreak ? "streak-banner" : ""}`}>
       <div className="flex-1">
         <p className="text-[10px] uppercase tracking-[0.12em] text-muted font-semibold mb-2">Season Record</p>
         <div className="flex items-baseline gap-2.5">

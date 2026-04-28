@@ -6,6 +6,9 @@ import { LiveGameBarServer } from "@/components/live-game-bar-server";
 import { CompassBg } from "@/components/compass-bg";
 import { EasterEggController } from "@/components/easter-eggs";
 import { ThemeApplier } from "@/components/theme-applier";
+import { SkinBanner } from "@/components/skin-banner";
+import { SkinDecorations } from "@/components/skin-decorations";
+import { SiteFooter } from "@/components/site-footer";
 import { CommandPalette } from "@/components/command-palette";
 import { statDefsForPalette } from "@/lib/command-index";
 import { StatExplainerHost } from "@/components/stat-explainer";
@@ -142,6 +145,7 @@ export default async function RootLayout({
         <CompassBg />
         <div className="theme-overlay" aria-hidden />
         <Navigation mood={moodEmoji} />
+        <SkinBanner />
         <LiveGameBarServer />
         <main className="flex-1 container-trident pt-6 pb-nav relative z-10">
           {children}
@@ -149,29 +153,8 @@ export default async function RootLayout({
         <EasterEggController winStreak={winStreak} />
         <CommandPalette players={palettePlayers} statDefs={statDefs} />
         <StatExplainerHost />
-        <footer className="hidden md:block py-6 relative z-10">
-          <div className="container-trident flex items-center justify-between">
-            <div className="flex items-center gap-2 text-muted/50">
-              <span className="text-teal/40">⚓</span>
-              <span className="text-[10px] tracking-[0.1em] uppercase font-medium">The Trident</span>
-            </div>
-            <p className="text-[10px] text-muted/40 text-center">
-              Fan project · Data from{" "}
-              <a
-                href="https://statsapi.mlb.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-teal/60 hover:text-teal transition-colors"
-              >
-                MLB Stats API
-              </a>
-              {" "}· Not affiliated with MLB or the Mariners
-            </p>
-            <div className="text-[10px] text-muted/30 tracking-wider uppercase">
-              SEA · {new Date().getFullYear()}
-            </div>
-          </div>
-        </footer>
+        <SkinDecorations />
+        <SiteFooter />
       </body>
     </html>
   );

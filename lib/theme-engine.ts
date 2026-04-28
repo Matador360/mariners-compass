@@ -6,7 +6,14 @@ export type ThemeId =
   | "teal-classic"
   | "throwback-1995"
   | "playoff-push"
-  | "auto";
+  | "auto"
+  // Calendar-only skins. Not in THEMES — the picker hides these. Written to
+  // <html data-theme=...> by theme-applier when a calendar override fires.
+  | "felix-perfect"
+  | "edgars-double"
+  | "griffey-birthday"
+  | "ichiro-hof"
+  | "pilots-flash";
 
 export interface ThemeMeta {
   id: ThemeId;
