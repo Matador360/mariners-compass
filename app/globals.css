@@ -117,8 +117,8 @@
   --glass-border: rgba(15, 23, 42, 0.10);
   --glass-border-hover: rgba(13, 148, 136, 0.35);
   --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   --accent-teal: #0d9488;
   --accent-teal-dim: #0f766e;
   --accent-teal-bright: #14b8a6;
@@ -158,8 +158,8 @@
   --glass-border: rgba(196, 181, 253, 0.14);
   --glass-border-hover: rgba(94, 234, 212, 0.45);
   --text-primary: #ede9fe;
-  --text-secondary: #a5b4fc;
-  --text-muted: #7c79b8;
+  --text-secondary: #c4c1f0;
+  --text-muted: #a5a3d8;
   --accent-teal: #5eead4;
   --accent-teal-dim: #2dd4bf;
   --accent-teal-bright: #99f6e4;
@@ -194,8 +194,8 @@
   --glass-border: rgba(251, 191, 36, 0.18);
   --glass-border-hover: rgba(251, 191, 36, 0.55);
   --text-primary: #f8e9d0;
-  --text-secondary: #c4a76a;
-  --text-muted: #8a7860;
+  --text-secondary: #d4b88a;
+  --text-muted: #b8a380;
   --accent-teal: #4a90a4;
   --accent-teal-dim: #336279;
   --accent-teal-bright: #6db4c8;
@@ -229,8 +229,8 @@
   --glass-border: rgba(255, 215, 0, 0.22);
   --glass-border-hover: rgba(255, 215, 0, 0.55);
   --text-primary: #ffffff;
-  --text-secondary: #c8e6c9;
-  --text-muted: #8ab397;
+  --text-secondary: #d8eed9;
+  --text-muted: #a8c8b5;
   --accent-teal: #00a878;
   --accent-teal-dim: #007a5a;
   --accent-teal-bright: #00d49b;
@@ -264,8 +264,8 @@
   --glass-border: rgba(192, 192, 192, 0.22);
   --glass-border-hover: rgba(192, 192, 192, 0.55);
   --text-primary: #ffffff;
-  --text-secondary: #b3d9b3;
-  --text-muted: #80a880;
+  --text-secondary: #cce8cc;
+  --text-muted: #a8c8a8;
   --accent-teal: #c0c0c0;
   --accent-teal-dim: #909090;
   --accent-teal-bright: #e0e0e0;
@@ -299,8 +299,8 @@
   --glass-border: rgba(251, 191, 36, 0.30);
   --glass-border-hover: rgba(251, 191, 36, 0.70);
   --text-primary: #fde68a;
-  --text-secondary: #d4a017;
-  --text-muted: #92711d;
+  --text-secondary: #e8b840;
+  --text-muted: #c89a3a;
   --accent-teal: #ef4444;
   --accent-teal-dim: #b91c1c;
   --accent-teal-bright: #f87171;
@@ -463,7 +463,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Section overline label */
 .label-overline {
   font-family: var(--font-grotesk);
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
