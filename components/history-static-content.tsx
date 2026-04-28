@@ -5,6 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { CountingNumber } from "@/components/counting-number";
 import { TridentDivider } from "@/components/trident-logo";
+import { HISTORY_HEADLINE_STATS } from "@/lib/history-constants";
 
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
@@ -52,16 +53,7 @@ function RevealSection({
   );
 }
 
-const BIG_STATS = [
-  { value: 49, suffix: " yrs", label: "Years of Suffering", decimals: 0 },
-  { value: 0, suffix: "", label: "World Series Appearances", decimals: 0 },
-  { value: 116, suffix: " W", label: "Best Season (2001)", decimals: 0 },
-  { value: 262, suffix: " H", label: "Ichiro's 2004 Record", decimals: 0 },
-  { value: 21, suffix: " yrs", label: "Playoff Drought", decimals: 0 },
-  { value: 4, suffix: "", label: "Hall of Famers", decimals: 0 },
-  { value: 630, suffix: " HR", label: "Griffey Career Homers", decimals: 0 },
-  { value: 1, suffix: "", label: "Perfect Games (Felix)", decimals: 0 },
-];
+const BIG_STATS = HISTORY_HEADLINE_STATS;
 
 type Vibe = "legendary" | "good" | "bad" | "cursed" | "neutral";
 

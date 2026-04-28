@@ -2,7 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import type { SavantPitch, SavantArsenalPitch, SavantExpected } from '@/lib/savant';
-import { batterSprayChartData, batterZoneStats, pitcherSwingMetrics } from '@/lib/savant';
+import {
+  batterSprayChartData,
+  batterZoneStats,
+  pitcherSwingMetrics,
+  computeBatterStatcastSummary,
+} from '@/lib/savant';
 import { SprayChart } from '@/components/charts/spray-chart';
 import { ZoneHeatmap, type ZoneCell } from '@/components/charts/zone-heatmap';
 import { RealPitchArsenal } from '@/components/charts/real-pitch-arsenal';
@@ -243,6 +248,13 @@ function HitterStatcastContent({
   const sprayData = useMemo(() => batterSprayChartData(pitches), [pitches]);
   const discipline = useMemo(() => pitcherSwingMetrics(pitches), [pitches]);
   const zoneCells  = useMemo(() => buildBatterZoneCells(pitches, zoneMetric), [pitches, zoneMetric]);
+  // Bug 6: when Savant's qualified-batter leaderboard hasn't picked up this
+  // player yet (`expected` is null), fall back to per-pitch computed values
+  // so EV / Hard Hit% / Barrel% show real numbers instead of "—".
+  const fallback = useMemo(() => computeBatterStatcastSummary(pitches), [pitches]);
+  const avgEV     = expected?.avgExitVelo ?? fallback?.avgExitVelo;
+  const brlPct    = expected?.brlPct      ?? fallback?.brlPct;
+  const hardHit   = expected?.hardHitPct  ?? fallback?.hardHitPct;
 
   return (
     <>
@@ -250,9 +262,9 @@ function HitterStatcastContent({
       <div>
         <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-3">Key Metrics</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-          <MetricTile label="Avg EV"       value={expected?.avgExitVelo?.toFixed(1)} unit="mph" avg={HITTER_AVGS.exitVelo}  lo={80} hi={96} />
-          <MetricTile label="Barrel%"      value={expected?.brlPct?.toFixed(1)}      unit="%"   avg={HITTER_AVGS.barrelPct} lo={0} hi={20} />
-          <MetricTile label="Hard Hit%"    value={expected?.hardHitPct?.toFixed(1)}  unit="%"   avg={HITTER_AVGS.hardHitPct} lo={20} hi={55} />
+          <MetricTile label="Avg EV"       value={avgEV?.toFixed(1)}                 unit="mph" avg={HITTER_AVGS.exitVelo}  lo={80} hi={96} />
+          <MetricTile label="Barrel%"      value={brlPct?.toFixed(1)}                unit="%"   avg={HITTER_AVGS.barrelPct} lo={0} hi={20} />
+          <MetricTile label="Hard Hit%"    value={hardHit?.toFixed(1)}               unit="%"   avg={HITTER_AVGS.hardHitPct} lo={20} hi={55} />
           <MetricTile label="Sprint Speed" value={sprintSpeed?.toFixed(1)}           unit="ft/s" avg={HITTER_AVGS.sprintSpeed} lo={23} hi={31} />
           <MetricTile label="xBA"          value={expected?.estBA?.toFixed(3)?.replace(/^0\./,'.')} unit="" avg={HITTER_AVGS.xBA}   lo={0.18} hi={0.34} />
           <MetricTile label="xwOBA"        value={expected?.estWOBA?.toFixed(3)?.replace(/^0\./,'.')} unit="" avg={HITTER_AVGS.xwOBA} lo={0.25} hi={0.42} />

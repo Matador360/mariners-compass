@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { X, Clock } from 'lucide-react';
 import { teamLogoUrl } from '@/lib/utils';
 import type { ParsedLiveGame, WpaPoint } from '@/lib/live-game';
-import { captionForGameResult, type Tone } from '@/lib/captions';
+import { captionForGameResult } from '@/lib/captions';
+import { loadTone, subscribeTone, type Tone } from '@/lib/tone';
 
 const DISMISS_KEY = (pk: number) => `trident:bar-dismissed:${pk}`;
 const SEA_ID = 136;
@@ -109,11 +110,9 @@ export function LiveGameBar({ initialData, gameDate }: LiveGameBarProps) {
     if (sessionStorage.getItem(DISMISS_KEY(initialData.gamePk))) {
       setDismissed(true);
     }
-    const saved = localStorage.getItem('trident:tone');
-    if (saved === 'family' || saved === 'spicy' || saved === 'profane') {
-      setTone(saved as Tone);
-    }
+    setTone(loadTone());
     setMounted(true);
+    return subscribeTone(setTone);
   }, [initialData.gamePk]);
 
   // Poll when live

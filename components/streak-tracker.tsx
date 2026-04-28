@@ -50,7 +50,7 @@ export function StreakTracker({ streaks, className }: StreakTrackerProps) {
   const slumps    = streaks.filter((s) => s.streakType === "slump");
 
   return (
-    <div className={cn("trident-card p-5", className)}>
+    <div className={cn("streak-tracker trident-card p-5", className)}>
       <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
           ⚡ Streak Tracker

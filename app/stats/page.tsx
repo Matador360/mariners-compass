@@ -44,7 +44,9 @@ function useTeamStats() {
       fetch(`${base}/teams/${TEAM_ID}/stats?season=${SEASON}&group=pitching&stats=season&sportId=1`).then((r) => r.json()),
       fetch(`${base}/teams/stats?sportId=1&season=${SEASON}&group=hitting&stats=season`).then((r) => r.json()),
       fetch(`${base}/teams/stats?sportId=1&season=${SEASON}&group=pitching&stats=season`).then((r) => r.json()),
-      fetch(`${base}/schedule?teamId=${TEAM_ID}&sportId=1&season=${SEASON}&hydrate=linescore`).then((r) => r.json()),
+      // gameType=R restricts to regular-season finals so the Run Diff tab's
+      // "Games Played" reflects actual RS games (not Spring Training).
+      fetch(`${base}/schedule?teamId=${TEAM_ID}&sportId=1&season=${SEASON}&gameType=R&hydrate=linescore`).then((r) => r.json()),
     ]).then(([hit, pitch, lHit, lPitch, sched]) => {
       const hitting = hit.status === "fulfilled" ? hit.value?.stats?.[0]?.splits?.[0]?.stat ?? null : null;
       const pitching = pitch.status === "fulfilled" ? pitch.value?.stats?.[0]?.splits?.[0]?.stat ?? null : null;

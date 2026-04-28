@@ -86,6 +86,10 @@ function buildChaseRows(snapshots: PlayerCareerSnapshot[]): ChaseRow[] {
         snap.marinerSeasons
       );
       if (chase.current <= 0) continue;
+      // Bug 4: rate-stat records (AVG/OPS/ERA) require a min-PA / min-IP gate.
+      // Skip chasers below threshold so a 50-PA hitter at .585 doesn't appear
+      // as the chaser for Ichiro's .322 career AVG.
+      if (!chase.qualifies) continue;
 
       const isFirst = bestChase === null;
       const better =
