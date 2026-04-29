@@ -13,6 +13,7 @@ interface Props {
 
 export function TonePicker({ value, onChange, className }: Props) {
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<"top" | "bottom">("bottom");
   const [focusIdx, setFocusIdx] = useState(() =>
     Math.max(0, TONES.findIndex((t) => t.id === value)),
   );
@@ -20,6 +21,18 @@ export function TonePicker({ value, onChange, className }: Props) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const current = getToneMeta(value);
+
+  useEffect(() => {
+    if (!open) return;
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    // Estimated popover height: ~64px per row × TONES + ~64px header/footer.
+    const estimated = TONES.length * 64 + 64;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    setPlacement(spaceBelow < estimated && spaceAbove > spaceBelow ? "top" : "bottom");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +104,10 @@ export function TonePicker({ value, onChange, className }: Props) {
           ref={popoverRef}
           role="listbox"
           aria-label="Choose caption tone"
-          className="absolute right-0 top-full mt-2 w-72 rounded-xl py-1.5 z-[80]"
+          className={cn(
+            "absolute right-0 w-72 max-h-[70vh] overflow-y-auto rounded-xl py-1.5 z-[80]",
+            placement === "top" ? "bottom-full mb-2" : "top-full mt-2",
+          )}
           style={{
             background: "rgba(9, 24, 43, 0.96)",
             backdropFilter: "blur(24px)",

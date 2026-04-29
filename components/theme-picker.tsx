@@ -14,6 +14,7 @@ interface Props {
 
 export function ThemePicker({ value, onChange, resolvedId, className }: Props) {
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<"top" | "bottom">("bottom");
   const [focusIdx, setFocusIdx] = useState(() =>
     Math.max(0, THEMES.findIndex((t) => t.id === value)),
   );
@@ -22,6 +23,25 @@ export function ThemePicker({ value, onChange, resolvedId, className }: Props) {
 
   const current = getThemeMeta(value);
   const resolved = resolvedId ? getThemeMeta(resolvedId) : null;
+
+  // Flip the popover above the button when there isn't enough room below
+  // (mobile "More" sheet sits at viewport bottom, so opening down dropped
+  // the menu off-screen).
+  useEffect(() => {
+    if (!open) return;
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    // Estimated popover height: ~56px per row × THEMES + ~12px padding.
+    const estimated = THEMES.length * 56 + 12;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    if (spaceBelow < estimated && spaceAbove > spaceBelow) {
+      setPlacement("top");
+    } else {
+      setPlacement("bottom");
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +112,10 @@ export function ThemePicker({ value, onChange, resolvedId, className }: Props) {
           ref={popoverRef}
           role="listbox"
           aria-label="Choose theme"
-          className="absolute right-0 top-full mt-2 w-72 rounded-xl py-1.5 z-[80]"
+          className={cn(
+            "absolute right-0 w-72 max-h-[70vh] overflow-y-auto rounded-xl py-1.5 z-[80]",
+            placement === "top" ? "bottom-full mb-2" : "top-full mt-2",
+          )}
           style={{
             background: "rgba(9, 24, 43, 0.96)",
             backdropFilter: "blur(24px)",
