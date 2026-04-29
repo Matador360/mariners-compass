@@ -44,3 +44,6 @@ next-env.d.ts
 
 # claude code internal scaffolding
 .claude/
+
+# theme audit artifacts
+.theme-audit/

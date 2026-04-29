@@ -93,6 +93,12 @@
   --tt-success: #22c55e;
   --tt-border: rgba(180, 200, 220, 0.10);
   --tt-overlay-gradient: none;
+
+  /* Bump muted to ~5:1 contrast on the deep bg. The default --text-muted
+   * (#4A6580 ≈ 3.3:1) was readable at 14px+ but punished tiny captions and
+   * label overlines on every page. Brings dark in line with the lift the
+   * other themes got in commit ac1498c. */
+  --text-muted: #7390AB;
 }
 
 [data-theme="light"] {
@@ -1088,6 +1094,20 @@ main { animation: page-in 0.32s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .pilots-flash-overlay { animation: none; opacity: 0; }
 }
+
+/* ─── Mobile readability floor ─────────────────────────────────────────────────
+ * 354 places in the codebase use Tailwind arbitrary `text-[Npx]` classes.
+ * On retina mobile, 8-10px lands well below the 11px legibility floor —
+ * section overlines (REGULAR SEASON, TEAM AVG), stat captions (57th %ile),
+ * the nav tagline, history page chase-bar metadata, and HoF voting notes
+ * all suffer. Bump them at the CSS layer instead of touching every file.
+ * Tailwind generates `.text-\[10px\]` so we override the same selector here.
+ */
+.text-\[7px\]  { font-size: 11px; }
+.text-\[8px\]  { font-size: 11px; }
+.text-\[9px\]  { font-size: 11.5px; }
+.text-\[10px\] { font-size: 12px; }
+.text-\[11px\] { font-size: 12.5px; }
 
 /* Skin banner — small dismissible chip at the top of the page. */
 .skin-banner {
