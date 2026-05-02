@@ -57,6 +57,10 @@ interface StrikeZoneLiveProps {
   heatmap?: { zone: number; intensity: number }[];
   /** Optional title shown above the SVG. */
   caption?: string;
+  /** When true, omit the caption + reserved hover-tooltip strip — caller renders its own. */
+  compact?: boolean;
+  /** Pixel cap for the SVG width. */
+  maxWidth?: number;
 }
 
 // 9-zone (1..9) layout inside the strike zone box for the heatmap.
@@ -83,6 +87,8 @@ export function StrikeZoneLive({
   emphasizeLast = true,
   heatmap,
   caption,
+  compact = false,
+  maxWidth = 260,
 }: StrikeZoneLiveProps) {
   const [hover, setHover] = useState<PitchHover | null>(null);
   const zone = zoneProp ?? inferStrikeZone(pitches);
@@ -101,7 +107,7 @@ export function StrikeZoneLive({
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      {caption && (
+      {caption && !compact && (
         <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">
           {caption}
         </p>
@@ -111,7 +117,7 @@ export function StrikeZoneLive({
         width="100%"
         height="100%"
         viewBox={`0 0 ${W} ${H}`}
-        className="max-w-[260px]"
+        style={{ maxWidth: `${maxWidth}px` }}
         aria-label="Pitch location strike zone"
       >
         {/* outer field */}
@@ -264,7 +270,7 @@ export function StrikeZoneLive({
       </svg>
 
       {/* hover/focus card */}
-      <div className="min-h-[44px] w-full max-w-[260px] text-[11px] leading-tight">
+      {!compact && <div className="min-h-[44px] w-full max-w-[260px] text-[11px] leading-tight">
         {hover ? (
           <div className="rounded border border-white/10 bg-black/30 px-2 py-1.5">
             <div className="flex items-center gap-2">
@@ -312,7 +318,7 @@ export function StrikeZoneLive({
         ) : (
           <div className="px-1 text-gray-600 italic">Hover a pitch for details</div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
