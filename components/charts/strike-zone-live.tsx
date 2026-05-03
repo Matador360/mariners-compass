@@ -240,8 +240,10 @@ export function StrikeZoneLive({
               onMouseLeave={() => setHover(null)}
               onFocus={() => setHover({ ...p, category: cat })}
               onBlur={() => setHover(null)}
+              onClick={() => setHover({ ...p, category: cat })}
               tabIndex={0}
-              style={{ cursor: 'pointer', outline: 'none' }}
+              style={{ cursor: 'pointer', outline: 'none', transformOrigin: `${cx}px ${cy}px` }}
+              className={isLast ? 'anim-pitch-arrive' : ''}
             >
               <circle
                 cx={cx}
@@ -316,7 +318,7 @@ export function StrikeZoneLive({
             )}
           </div>
         ) : (
-          <div className="px-1 text-gray-600 italic">Hover a pitch for details</div>
+          <div className="px-1 text-gray-600 italic">Tap a pitch for details</div>
         )}
       </div>}
     </div>

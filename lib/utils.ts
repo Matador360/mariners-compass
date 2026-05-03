@@ -195,9 +195,12 @@ export function playerHeadshotUrl(playerId: number, size: number = 120): string 
   return `https://midfield.mlbstatic.com/v1/people/${playerId}/spots/${size}`;
 }
 
-/** Higher-resolution cropped headshot for hero displays. */
-export function playerHeadshotLargeUrl(playerId: number, width: number = 240): string {
-  return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_${width},q_auto:best/v1/people/${playerId}/headshot/67/current`;
+/** Higher-resolution face-centered headshot for hero displays.
+ *  Uses Cloudinary's `c_thumb,g_face` to intelligently crop around the player's
+ *  face — fixes the "face is too low / chin cut off" issue when a square circle
+ *  is overlaid on a chest-up portrait. */
+export function playerHeadshotLargeUrl(playerId: number, size: number = 320): string {
+  return `https://img.mlbstatic.com/mlb-photos/image/upload/c_thumb,g_face,w_${size},h_${size},q_auto:best,f_auto/v1/people/${playerId}/headshot/67/current`;
 }
 
 export function positionColor(pos: string): string {

@@ -44,7 +44,7 @@ function game(plays: ParsedPlay[]): ParsedLiveGame {
       away: { id: 117, name: 'Astros', abbrev: 'HOU' },
     },
     umpires: [],
-    linescore: { innings: [], teams: { home: { runs: 0, hits: 0, errors: 0 }, away: { runs: 0, hits: 0, errors: 0 } } },
+    linescore: { innings: [], totals: { home: { runs: 0, hits: 0, errors: 0 }, away: { runs: 0, hits: 0, errors: 0 } } },
     allPlays: plays,
     scoringPlayIndices: [],
     wpaTimeline: [],
