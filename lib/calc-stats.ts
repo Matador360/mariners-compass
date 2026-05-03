@@ -1,5 +1,15 @@
 import type { MLBHittingStats, MLBPitchingStats } from "@/types/mlb";
 
+// ─── IP parser (mirrors lib/bullpen.ts:parseIP, kept here to avoid circular deps) ─
+
+export function parseInningsPitched(ip: string | undefined | null): number {
+  if (!ip) return 0;
+  const [whole, frac] = String(ip).split('.');
+  const w = parseInt(whole, 10) || 0;
+  const f = parseInt(frac ?? '0', 10) || 0;
+  return w + f / 3;
+}
+
 // ─── Advanced Hitting Metrics ──────────────────────────────────────────────
 
 export interface AdvancedHitting {
@@ -244,3 +254,87 @@ export const MARINERS_FACTS = [
   { fact: "Harold Reynolds led the AL in stolen bases in 1987 with 60 — a franchise record.", emoji: "💨" },
   { fact: "The Mariners have retired 11 numbers, more than any other expansion franchise.", emoji: "🔢" },
 ];
+
+// ─── Rolling form helpers (recent N days / last 5 outings) ─────────────────
+
+export interface RollingHittingForm {
+  ab: number;
+  hits: number;
+  homeRuns: number;
+  walks: number;
+  strikeouts: number;
+  obp: number;
+  slg: number;
+  ops: number;
+  games: number;
+}
+
+/** Aggregate hitting performance over the most-recent N games of a game log. */
+export function rollingHitting(
+  log: Array<{ date: string; stat: MLBHittingStats }>,
+  recentGames: number,
+): RollingHittingForm {
+  const slice = log.slice(0, recentGames); // log is newest-first
+  const ab = slice.reduce((s, e) => s + (Number(e.stat.atBats) || 0), 0);
+  const hits = slice.reduce((s, e) => s + (Number(e.stat.hits) || 0), 0);
+  const homeRuns = slice.reduce((s, e) => s + (Number(e.stat.homeRuns) || 0), 0);
+  const walks = slice.reduce((s, e) => s + (Number(e.stat.baseOnBalls) || 0), 0);
+  const strikeouts = slice.reduce((s, e) => s + (Number(e.stat.strikeOuts) || 0), 0);
+  const hbp = slice.reduce((s, e) => s + (Number(e.stat.hitByPitch ?? 0) || 0), 0);
+  const sf = slice.reduce((s, e) => s + (Number(e.stat.sacFlies ?? 0) || 0), 0);
+  const doubles = slice.reduce((s, e) => s + (Number(e.stat.doubles) || 0), 0);
+  const triples = slice.reduce((s, e) => s + (Number(e.stat.triples) || 0), 0);
+  const tb = (hits - doubles - triples - homeRuns) + 2 * doubles + 3 * triples + 4 * homeRuns;
+  const obDenom = ab + walks + hbp + sf;
+  const obp = obDenom > 0 ? (hits + walks + hbp) / obDenom : 0;
+  const slg = ab > 0 ? tb / ab : 0;
+  return {
+    ab, hits, homeRuns, walks, strikeouts,
+    obp, slg, ops: obp + slg, games: slice.length,
+  };
+}
+
+/** Aggregate pitching performance over the most-recent N appearances. */
+export function rollingPitching(
+  log: Array<{ date: string; stat: MLBPitchingStats }>,
+  recentApps: number,
+): { ip: number; er: number; era: number; whip: number; k: number; bb: number; hits: number; appearances: number } {
+  const slice = log.slice(0, recentApps);
+  const ip = slice.reduce((s, e) => s + parseInningsPitched(e.stat.inningsPitched), 0);
+  const er = slice.reduce((s, e) => s + (Number(e.stat.earnedRuns) || 0), 0);
+  const k = slice.reduce((s, e) => s + (Number(e.stat.strikeOuts) || 0), 0);
+  const bb = slice.reduce((s, e) => s + (Number(e.stat.baseOnBalls) || 0), 0);
+  const hits = slice.reduce((s, e) => s + (Number(e.stat.hits) || 0), 0);
+  const era = ip > 0 ? (er * 9) / ip : 0;
+  const whip = ip > 0 ? (bb + hits) / ip : 0;
+  return { ip, er, era, whip, k, bb, hits, appearances: slice.length };
+}
+
+/** Days between two ISO date strings (YYYY-MM-DD). */
+export function daysBetween(a: string, b: string): number {
+  const da = new Date(a).getTime();
+  const db = new Date(b).getTime();
+  return Math.round(Math.abs(db - da) / (1000 * 60 * 60 * 24));
+}
+
+/** Days since last appearance, given a newest-first game log. */
+export function daysRest(log: Array<{ date: string }>, today: Date = new Date()): number | null {
+  if (log.length === 0) return null;
+  const todayStr = today.toISOString().slice(0, 10);
+  return daysBetween(log[0].date, todayStr);
+}
+
+/** Hit streak: consecutive newest-first games with at least one hit. */
+export function hitStreak(log: Array<{ stat: MLBHittingStats }>): number {
+  let n = 0;
+  for (const e of log) {
+    if ((Number(e.stat.hits) || 0) > 0) n++;
+    else break;
+  }
+  return n;
+}
+
+/** Multi-hit games in last N. */
+export function multiHitGames(log: Array<{ stat: MLBHittingStats }>, lastN = 10): number {
+  return log.slice(0, lastN).filter(e => (Number(e.stat.hits) || 0) >= 2).length;
+}

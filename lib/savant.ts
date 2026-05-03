@@ -77,6 +77,17 @@ export interface SavantPitch {
   gameDate?: string;
   batterStand?: 'L' | 'R';
   pitcherHand?: 'L' | 'R';
+  // Extended Statcast fields (mapped from Savant CSV when present)
+  releaseExtension?: number;   // ft in front of rubber at release
+  effectiveSpeed?: number;     // perceived velo accounting for extension
+  batSpeed?: number;           // 2024+ — avg mph of bat through zone
+  swingLength?: number;        // 2024+ — bat path distance, ft
+  spinAxis?: number;           // 0-360°, clock direction of spin
+  estBA?: number;              // per-pitch xBA (estimated_ba_using_speedangle)
+  estWOBA?: number;            // per-pitch xwOBA
+  vy0?: number;                // initial Y-velocity (for VAA)
+  vz0?: number;                // initial Z-velocity (for VAA)
+  releasePosZ?: number;        // release height (for VAA)
 }
 
 export interface SavantExpected {
@@ -191,6 +202,16 @@ function mapPitch(r: CsvRow): SavantPitch {
     gameDate: str(r['game_date']),
     batterStand: (rawStand === 'L' || rawStand === 'R') ? rawStand : undefined,
     pitcherHand: (rawHand === 'L' || rawHand === 'R') ? rawHand : undefined,
+    releaseExtension: n(r['release_extension']),
+    effectiveSpeed: n(r['effective_speed']),
+    batSpeed: n(r['bat_speed']),
+    swingLength: n(r['swing_length']),
+    spinAxis: n(r['spin_axis']),
+    estBA: n(r['estimated_ba_using_speedangle']),
+    estWOBA: n(r['estimated_woba_using_speedangle']),
+    vy0: n(r['vy0']),
+    vz0: n(r['vz0']),
+    releasePosZ: n(r['release_pos_z']),
   };
 }
 
@@ -459,4 +480,97 @@ export function pitcherSwingMetrics(pitches: SavantPitch[]): {
     chasePct: outOfZone > 0 ? chaseSwings / outOfZone : 0,
     zonePct: total > 0 ? inZone / total : 0,
   };
+}
+
+// ─── Movement & VAA helpers ──────────────────────────────────────────────────
+
+export interface PitchTypeProfile {
+  pitchType: string;
+  pitchName?: string;
+  count: number;
+  avgPfxX: number;   // ft of horizontal break (catcher view: + away from RHB)
+  avgPfxZ: number;   // ft of induced vertical break
+  avgVelo?: number;
+  avgSpin?: number;
+  avgExtension?: number;
+  avgSpinAxis?: number;
+}
+
+/** Aggregate per-pitch-type movement/velo/spin profile. Useful for "vs avg" deltas. */
+export function pitchMovementProfile(pitches: SavantPitch[]): Map<string, PitchTypeProfile> {
+  const acc = new Map<string, {
+    name?: string;
+    n: number;
+    pfxX: number; pfxZ: number; pfxN: number;
+    velo: number; veloN: number;
+    spin: number; spinN: number;
+    ext: number; extN: number;
+    axis: number; axisN: number;
+  }>();
+  for (const p of pitches) {
+    const code = p.pitchType ?? 'UN';
+    let a = acc.get(code);
+    if (!a) {
+      a = { name: p.pitchName, n: 0, pfxX: 0, pfxZ: 0, pfxN: 0, velo: 0, veloN: 0, spin: 0, spinN: 0, ext: 0, extN: 0, axis: 0, axisN: 0 };
+      acc.set(code, a);
+    }
+    a.n++;
+    if (p.pfxX != null) { a.pfxX += p.pfxX; a.pfxN++; }
+    if (p.pfxZ != null) { a.pfxZ += p.pfxZ; }
+    if (p.releaseSpeed != null) { a.velo += p.releaseSpeed; a.veloN++; }
+    if (p.releaseSpinRate != null) { a.spin += p.releaseSpinRate; a.spinN++; }
+    if (p.releaseExtension != null) { a.ext += p.releaseExtension; a.extN++; }
+    if (p.spinAxis != null) { a.axis += p.spinAxis; a.axisN++; }
+  }
+  const out = new Map<string, PitchTypeProfile>();
+  for (const [code, a] of acc) {
+    out.set(code, {
+      pitchType: code,
+      pitchName: a.name,
+      count: a.n,
+      avgPfxX: a.pfxN > 0 ? a.pfxX / a.pfxN : 0,
+      avgPfxZ: a.pfxN > 0 ? a.pfxZ / a.pfxN : 0,
+      avgVelo: a.veloN > 0 ? a.velo / a.veloN : undefined,
+      avgSpin: a.spinN > 0 ? a.spin / a.spinN : undefined,
+      avgExtension: a.extN > 0 ? a.ext / a.extN : undefined,
+      avgSpinAxis: a.axisN > 0 ? a.axis / a.axisN : undefined,
+    });
+  }
+  return out;
+}
+
+/**
+ * Vertical Approach Angle (degrees, negative = downward) at the plate.
+ * Standard kinematic approximation: VAA = atan2(vz_at_plate, |vy_at_plate|).
+ * Without full y_distance we use a proxy from Statcast's (vy0, vz0) and known
+ * plate distance (~50 ft from release, gravity-adjusted). Returns null when
+ * required fields are missing.
+ *
+ * Formula (close approximation):
+ *   t = (-vy0 - sqrt(vy0^2 - 2*ay*(50 - y0)))/ay  // not exposed → use t≈0.4s
+ *   vz_plate = vz0 + (-32.174) * t
+ *   VAA = atan2(vz_plate, vy0) * 180/PI
+ */
+export function verticalApproachAngle(
+  vy0: number | undefined,
+  vz0: number | undefined,
+  releasePosZ: number | undefined,
+): number | null {
+  if (vy0 == null || vz0 == null) return null;
+  const t = 0.4; // seconds, league-avg flight time
+  const g = -32.174; // ft/s²
+  const vzPlate = vz0 + g * t;
+  // Use absolute vy0 because pitches travel toward home (negative Y) — sign is unimportant for VAA magnitude.
+  const angle = Math.atan2(vzPlate, Math.abs(vy0)) * (180 / Math.PI);
+  // Higher release height tends to steepen VAA — small correction (~0.5° per ft above 6 ft)
+  if (releasePosZ != null) {
+    return angle - (releasePosZ - 6) * 0.4;
+  }
+  return angle;
+}
+
+/** Convert pfx (feet of break at plate) → inches with sign convention. */
+export function pfxToInches(pfx: number | undefined): number | null {
+  if (pfx == null) return null;
+  return pfx * 12;
 }

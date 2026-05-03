@@ -480,3 +480,213 @@ export function sequenceSummary(pitches: ParsedPitch[]): string {
     })
     .join(' · ');
 }
+
+// ─── Live-game advanced helpers ──────────────────────────────────────────────
+
+/** Bucket pitcher's pitches today by ball-strike count → arsenal usage. */
+export function arsenalByCount(
+  game: ParsedLiveGame,
+  pitcherId?: number,
+): Map<string, ArsenalRow[]> {
+  const out = new Map<string, ArsenalRow[]>();
+  if (!pitcherId) return out;
+
+  // For each count, gather all pitches that occurred AT that count.
+  // ParsedPitch carries balls/strikes pre-pitch on `count` (verify shape),
+  // but to be safe we walk plays and reconstruct count state per pitch.
+  const buckets = new Map<string, ParsedPitch[]>();
+
+  for (const play of game.allPlays) {
+    if (play.pitcher.id !== pitcherId) continue;
+    let b = 0, s = 0;
+    for (const p of play.pitches) {
+      const k = `${b}-${s}`;
+      if (!buckets.has(k)) buckets.set(k, []);
+      buckets.get(k)!.push(p);
+      const cat = categorizePitch(p);
+      if (cat === 'ball') b = Math.min(3, b + 1);
+      else if (cat === 'called-strike' || cat === 'swinging-strike') s = Math.min(2, s + 1);
+      else if (cat === 'foul') {
+        if (s < 2) s++;
+      }
+    }
+  }
+
+  for (const [count, pitches] of buckets) {
+    const accs = new Map<string, { name: string; n: number; whiffs: number; swings: number; }>();
+    for (const p of pitches) {
+      const code = p.type?.code ?? 'UN';
+      const name = p.type?.description ?? 'Unknown';
+      let acc = accs.get(code);
+      if (!acc) { acc = { name, n: 0, whiffs: 0, swings: 0 }; accs.set(code, acc); }
+      acc.n++;
+      const cat = categorizePitch(p);
+      if (cat === 'swinging-strike') { acc.swings++; acc.whiffs++; }
+      else if (cat === 'foul' || cat === 'in-play') acc.swings++;
+    }
+    const total = pitches.length || 1;
+    const rows: ArsenalRow[] = [...accs.entries()].map(([code, a]) => ({
+      code,
+      name: a.name,
+      count: a.n,
+      pct: a.n / total,
+      whiffPct: a.swings > 0 ? a.whiffs / a.swings : undefined,
+      putAways: 0,
+    })).sort((a, b) => b.count - a.count);
+    out.set(count, rows);
+  }
+  return out;
+}
+
+/** Most likely next pitch given current count, blending today's history with season usage. */
+export function nextPitchOdds(
+  game: ParsedLiveGame,
+  pitcherId: number | undefined,
+  balls: number,
+  strikes: number,
+  seasonArsenal?: ArsenalRow[],
+): Array<{ code: string; name: string; pct: number; whiffPct?: number }> {
+  if (!pitcherId) return [];
+  const byCount = arsenalByCount(game, pitcherId);
+  const k = `${balls}-${strikes}`;
+  const today = byCount.get(k) ?? [];
+  // If today's sample is too small, fall back to season arsenal
+  const totalToday = today.reduce((s, r) => s + r.count, 0);
+  if (totalToday < 4 && seasonArsenal && seasonArsenal.length > 0) {
+    return seasonArsenal.map(a => ({
+      code: a.code, name: a.name, pct: a.pct, whiffPct: a.whiffPct,
+    })).sort((x, y) => y.pct - x.pct);
+  }
+  return today.map(r => ({
+    code: r.code, name: r.name, pct: r.pct, whiffPct: r.whiffPct,
+  }));
+}
+
+/** Pitcher fatigue tier based on today's pitch count vs season per-outing estimate. */
+export function fatigueScore(
+  game: ParsedLiveGame,
+  pitcherId: number | undefined,
+  seasonStats: {
+    gamesStarted?: number;
+    gamesPitched?: number;
+    pitchesPerInning?: string;
+    inningsPitched?: string;
+  } | null | undefined,
+): { pitchesToday: number; usualPitchesPerOuting: number; pct: number; tier: 'fresh' | 'normal' | 'tiring' | 'gassed' } {
+  const todayCount = pitchCountToday(game, pitcherId);
+  // Estimate usual: pitchesPerInning × (IP / games).
+  // Falls back to: 90 for starters, 16 for relievers, 80 generic.
+  let usual = 80;
+  if (seasonStats) {
+    const ppi = seasonStats.pitchesPerInning ? parseFloat(seasonStats.pitchesPerInning) : NaN;
+    const ip = seasonStats.inningsPitched ? parseFloat(seasonStats.inningsPitched) : NaN;
+    const games = Math.max(1, seasonStats.gamesPitched ?? 1);
+    if (Number.isFinite(ppi) && Number.isFinite(ip) && games > 0) {
+      const ipPerGame = ip / games;
+      usual = ppi * ipPerGame;
+    } else if ((seasonStats.gamesStarted ?? 0) > games / 2) {
+      usual = 90; // mostly a starter
+    } else {
+      usual = 18; // mostly a reliever
+    }
+  }
+  const pct = usual > 0 ? todayCount / usual : 0;
+  let tier: 'fresh' | 'normal' | 'tiring' | 'gassed' = 'normal';
+  if (pct < 0.3) tier = 'fresh';
+  else if (pct < 0.75) tier = 'normal';
+  else if (pct < 1.05) tier = 'tiring';
+  else tier = 'gassed';
+  return { pitchesToday: todayCount, usualPitchesPerOuting: Math.round(usual), pct, tier };
+}
+
+/** Velocity decay across the outing: avg of first 10 pitches vs avg of last 10. */
+export function velocityDecay(
+  game: ParsedLiveGame,
+  pitcherId?: number,
+): { earlyAvg: number; recentAvg: number; deltaMph: number } {
+  if (!pitcherId) return { earlyAvg: 0, recentAvg: 0, deltaMph: 0 };
+  const speeds: number[] = [];
+  for (const play of game.allPlays) {
+    if (play.pitcher.id !== pitcherId) continue;
+    for (const p of play.pitches) {
+      if (p.speed != null) speeds.push(p.speed);
+    }
+  }
+  if (speeds.length < 6) return { earlyAvg: 0, recentAvg: 0, deltaMph: 0 };
+  const early = speeds.slice(0, Math.min(10, Math.floor(speeds.length / 2)));
+  const recent = speeds.slice(-Math.min(10, Math.floor(speeds.length / 2)));
+  const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+  const earlyAvg = avg(early);
+  const recentAvg = avg(recent);
+  return { earlyAvg, recentAvg, deltaMph: recentAvg - earlyAvg };
+}
+
+/** 0-100 deception score for a pitch following its predecessor. */
+export function tunnelingScore(prev: ParsedPitch, curr: ParsedPitch): number {
+  const prevX = prev.coordinates?.pX;
+  const prevZ = prev.coordinates?.pZ;
+  const currX = curr.coordinates?.pX;
+  const currZ = curr.coordinates?.pZ;
+  if (prevX == null || prevZ == null || currX == null || currZ == null) return 0;
+  // Closer plate locations + bigger velo gap = better tunneling
+  const dist = Math.hypot(currX - prevX, currZ - prevZ); // ft
+  const veloGap = Math.abs((prev.speed ?? 0) - (curr.speed ?? 0)); // mph
+  // Different pitch types boost score.
+  const sameType = prev.type?.code === curr.type?.code ? 0 : 1;
+  const proxScore = Math.max(0, 1 - dist / 1.5); // 1.5ft → 0
+  const veloScore = Math.min(1, veloGap / 12);   // 12mph delta = max
+  return Math.round(((proxScore * 0.5) + (veloScore * 0.3) + (sameType * 0.2)) * 100);
+}
+
+/** 0-100 "how dramatic is this AB" composite. Mariners-themed branding. */
+export function tridentScore(args: {
+  batterHot?: number;        // 0-100
+  pitcherHot?: number;       // 0-100 (higher = pitcher hot, BAD for batter drama)
+  leverageIdx?: number;      // 0-5 typical, 1.0 = avg
+  balls: number;
+  strikes: number;
+  scoreMargin?: number;      // |home - away|
+  inning?: number;
+}): number {
+  const lev = Math.min(2.5, Math.max(0, args.leverageIdx ?? 1));
+  const bh = (args.batterHot ?? 50) / 100;
+  const ph = 1 - (args.pitcherHot ?? 50) / 100;
+  // Count drama: full count = max
+  const countSum = args.balls + args.strikes;
+  const countDrama = Math.min(1, countSum / 5);
+  const lateBonus = args.inning && args.inning >= 7 ? 0.15 : 0;
+  const closeBonus = args.scoreMargin != null && args.scoreMargin <= 2 ? 0.15 : 0;
+  const composite =
+    (lev / 2.5) * 0.40 +
+    bh * 0.20 +
+    ph * 0.10 +
+    countDrama * 0.15 +
+    lateBonus +
+    closeBonus;
+  return Math.round(Math.min(1, composite) * 100);
+}
+
+/** Count K-rate for a player from raw season stats. Returns decimal (0..1). */
+export function batterKpct(s: { strikeOuts?: number | string; plateAppearances?: number | string }): number {
+  const k = Number(s.strikeOuts ?? 0);
+  const pa = Number(s.plateAppearances ?? 0);
+  return pa > 0 ? k / pa : 0.22;
+}
+
+export function batterBBpct(s: { baseOnBalls?: number | string; plateAppearances?: number | string }): number {
+  const bb = Number(s.baseOnBalls ?? 0);
+  const pa = Number(s.plateAppearances ?? 0);
+  return pa > 0 ? bb / pa : 0.085;
+}
+
+export function pitcherKpct(s: { strikeOuts?: number | string; battersFaced?: number | string }): number {
+  const k = Number(s.strikeOuts ?? 0);
+  const bf = Number(s.battersFaced ?? 0);
+  return bf > 0 ? k / bf : 0.22;
+}
+
+export function pitcherBBpct(s: { baseOnBalls?: number | string; battersFaced?: number | string }): number {
+  const bb = Number(s.baseOnBalls ?? 0);
+  const bf = Number(s.battersFaced ?? 0);
+  return bf > 0 ? bb / bf : 0.085;
+}
