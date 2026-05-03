@@ -14,24 +14,6 @@ import { LiveContactQuality } from '@/components/live-contact-quality';
 
 const LIVE_POLL_MS = 7_000;
 
-function FreshnessBadge({ fetchedAt }: { fetchedAt: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(id);
-  }, []);
-  const ageSec = Math.max(0, Math.round((now - fetchedAt) / 1000));
-  const stale = ageSec >= LIVE_POLL_MS / 1000 + 4;
-  return (
-    <div className="flex items-center justify-end gap-1.5 text-[10px] text-gray-500">
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`}
-      />
-      <span className="tabular-nums">updated {ageSec}s ago</span>
-    </div>
-  );
-}
-
 export function GameClient({ initialData }: { initialData: ParsedLiveGame }) {
   const [game, setGame] = useState<ParsedLiveGame>(initialData);
   const inFlightRef = useRef(false);
@@ -75,10 +57,10 @@ export function GameClient({ initialData }: { initialData: ParsedLiveGame }) {
 
   return (
     <div className="space-y-4 pb-8">
-      <GameHeader game={game} />
-      {isLive && <FreshnessBadge fetchedAt={game.fetchedAt} />}
-      {(isLive || game.state === 'Final') && <Linescore game={game} liveOnly />}
+      {!isLive && <GameHeader game={game} />}
       {isLive && <LiveAtBat game={game} />}
+      {!isLive && (game.state === 'Final') && <Linescore game={game} liveOnly />}
+      {isLive && <Linescore game={game} liveOnly />}
       {isLive && (
         <PitcherArsenalLive
           game={game}
