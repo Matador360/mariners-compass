@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ParsedLiveGame, ParsedPitch, PersonRef } from '@/lib/live-game';
 import {
   currentAtBat,
@@ -76,24 +76,28 @@ function FreshnessAge({ fetchedAt }: { fetchedAt: number }) {
 function CountDots({ filled, total, color }: { filled: number; total: number; color: string }) {
   return (
     <div className="flex gap-[3px]">
-      {Array.from({ length: total }).map((_, i) => (
-        <span
-          key={i}
-          className="h-[7px] w-[7px] rounded-full"
-          style={{
-            background: i < filled ? color : 'rgba(255,255,255,0.10)',
-            boxShadow: i < filled ? `0 0 6px ${color}80` : 'none',
-          }}
-        />
-      ))}
+      {Array.from({ length: total }).map((_, i) => {
+        const isFilled = i < filled;
+        const isJustFilled = i === filled - 1;
+        return (
+          <span
+            key={`${filled}-${i}`}
+            className={cn('h-[7px] w-[7px] rounded-full', isJustFilled && 'anim-count-fill')}
+            style={{
+              background: isFilled ? color : 'rgba(255,255,255,0.10)',
+              boxShadow: isFilled ? `0 0 6px ${color}80` : 'none',
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function BasesGlyph({ bases }: { bases?: { first: boolean; second: boolean; third: boolean } }) {
+function BasesGlyph({ bases, animate }: { bases?: { first: boolean; second: boolean; third: boolean }; animate?: boolean }) {
   const on = (b?: boolean) => (b ? TEAM_GOLD : 'rgba(255,255,255,0.12)');
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-label="bases">
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-label="bases" className={animate ? 'anim-bases-pulse' : undefined}>
       <polygon points="12,1 16,5 12,9 8,5" fill={on(bases?.second)} stroke="rgba(255,255,255,0.25)" strokeWidth="0.5" />
       <polygon points="19,8 23,12 19,16 15,12" fill={on(bases?.first)} stroke="rgba(255,255,255,0.25)" strokeWidth="0.5" />
       <polygon points="5,8 9,12 5,16 1,12" fill={on(bases?.third)} stroke="rgba(255,255,255,0.25)" strokeWidth="0.5" />
@@ -101,9 +105,11 @@ function BasesGlyph({ bases }: { bases?: { first: boolean; second: boolean; thir
   );
 }
 
-/** Clickable stat tile that opens the StatExplainer on tap. */
+/** Clickable stat tile that opens the StatExplainer on tap.
+ *  `value` can be any React node for the visual; `popupValue` overrides the
+ *  string passed to the explainer modal (otherwise we coerce). */
 function LiveStat({
-  statKey, label, value, accent, emphasize, sub, tone,
+  statKey, label, value, accent, emphasize, sub, tone, popupValue,
 }: {
   statKey: string;
   label: string;
@@ -112,8 +118,15 @@ function LiveStat({
   emphasize?: boolean;
   sub?: React.ReactNode;
   tone?: 'good' | 'bad' | 'neutral';
+  popupValue?: string | number;
 }) {
-  const valueStr = typeof value === 'number' ? String(value) : (typeof value === 'string' ? value : '—');
+  const valueStr = popupValue != null
+    ? String(popupValue)
+    : typeof value === 'number'
+      ? String(value)
+      : typeof value === 'string'
+        ? value
+        : '—';
   const color = tone === 'good' ? '#4ade80' : tone === 'bad' ? '#f87171' : (accent ?? '#e5e7eb');
   return (
     <StatClickable statKey={statKey} value={valueStr}>
@@ -131,14 +144,17 @@ function LiveStat({
   );
 }
 
-function PitchPip({ p }: { p: ParsedPitch }) {
+function PitchPip({ p, animate }: { p: ParsedPitch; animate?: boolean }) {
   const cat = categorizePitch(p);
   const color = cat ? PITCH_COLORS[cat] : '#6b7280';
   const code = p.type?.code ?? '?';
   const speed = p.speed != null ? Math.round(p.speed) : null;
   return (
     <div
-      className="flex items-center gap-1 rounded border border-white/10 bg-white/[0.03] px-1.5 py-[3px] text-[10px] tabular-nums leading-none"
+      className={cn(
+        'flex items-center gap-1 rounded border border-white/10 bg-white/[0.03] px-1.5 py-[3px] text-[10px] tabular-nums leading-none',
+        animate && 'anim-pitch-chip',
+      )}
       title={`${p.type?.description ?? code}${speed ? ` · ${speed} mph` : ''} · ${cat ? PITCH_LABELS[cat] : ''}`}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 4px ${color}90` }} />
@@ -276,6 +292,65 @@ export function LiveAtBat({ game }: Props) {
   const batterLog = useHittingLog(batterId);
   const pitcherLog = usePitchingLog(pitcherId);
 
+  // ─── Animation triggers (score flash + HR celebration) ──────────────────
+  const [scoreFlash, setScoreFlash] = useState<{ home: boolean; away: boolean }>({ home: false, away: false });
+  const [hrCelebrate, setHrCelebrate] = useState(false);
+  const prevScoreRef = useRef({ home: game.score.home, away: game.score.away });
+  const prevHrIdxRef = useRef<number>(-1);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    const prev = prevScoreRef.current;
+    if (!initializedRef.current) {
+      // Don't flash on first mount
+      prevScoreRef.current = { home: game.score.home, away: game.score.away };
+      // Initialize HR ref so an existing HR earlier in the game doesn't fire on mount
+      const existingHr = [...game.allPlays].reverse().find(p =>
+        p.isComplete && (p.eventType === 'home_run' || (p.event ?? '').toLowerCase().includes('home run')),
+      );
+      if (existingHr) prevHrIdxRef.current = existingHr.index;
+      initializedRef.current = true;
+      return;
+    }
+    const flashes = { home: false, away: false };
+    if (game.score.home > prev.home) flashes.home = true;
+    if (game.score.away > prev.away) flashes.away = true;
+    prevScoreRef.current = { home: game.score.home, away: game.score.away };
+    if (flashes.home || flashes.away) {
+      setScoreFlash(flashes);
+      const t = setTimeout(() => setScoreFlash({ home: false, away: false }), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [game.score.home, game.score.away, game.allPlays]);
+
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    const lastHrPlay = [...game.allPlays].reverse().find(p =>
+      p.isComplete && (p.eventType === 'home_run' || (p.event ?? '').toLowerCase().includes('home run')),
+    );
+    if (lastHrPlay && lastHrPlay.index !== prevHrIdxRef.current) {
+      prevHrIdxRef.current = lastHrPlay.index;
+      setHrCelebrate(true);
+      const t = setTimeout(() => setHrCelebrate(false), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [game.allPlays]);
+
+  // Bases changed — pulse the diamond glyph for a moment
+  const basesKey = `${game.bases?.first ? 1 : 0}${game.bases?.second ? 1 : 0}${game.bases?.third ? 1 : 0}`;
+  const prevBasesKeyRef = useRef(basesKey);
+  const [basesPulse, setBasesPulse] = useState(false);
+  useEffect(() => {
+    if (prevBasesKeyRef.current !== basesKey) {
+      prevBasesKeyRef.current = basesKey;
+      if (initializedRef.current) {
+        setBasesPulse(true);
+        const t = setTimeout(() => setBasesPulse(false), 1800);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [basesKey]);
+
   if (!ab) return null;
   if (game.state !== 'Live' && !ab.isComplete) return null;
 
@@ -351,7 +426,20 @@ export function LiveAtBat({ game }: Props) {
   const kRisk = liveKRisk(pK, bK, balls, strikes);
   const bbProbReal = liveBBProb(pBB, bBB, balls, strikes);
 
-  const lev = game.leverageTimeline.length > 0 ? game.leverageTimeline[game.leverageTimeline.length - 1].leverageIndex : 1.0;
+  // Prefer the current play's leverage (set when the play is parsed) so the
+  // value reflects THIS at-bat, not the last completed play. Fall back to the
+  // most recent timeline entry, then 1.0 (neutral).
+  const currentPlayLev = game.currentPlayIndex != null
+    ? game.allPlays[game.currentPlayIndex]?.leverageIndex
+    : undefined;
+  const lev = currentPlayLev
+    ?? (game.leverageTimeline.length > 0 ? game.leverageTimeline[game.leverageTimeline.length - 1].leverageIndex : 1.0);
+
+  // Latest WP — used for the live score-bar visualization
+  const wpAway = game.wpaTimeline.length > 0
+    ? game.wpaTimeline[game.wpaTimeline.length - 1].awayWinProb
+    : 0.5;
+  const wpHome = 1 - wpAway;
   const re = game.bases ? runExpectancy(game.bases, outs) : 0;
   const reDelta = game.bases ? reDeltaIfReaches(game.bases, outs) : 0;
 
@@ -463,7 +551,7 @@ export function LiveAtBat({ game }: Props) {
               {halfLabel} {game.inning}
             </span>
           )}
-          <BasesGlyph bases={game.bases} />
+          <BasesGlyph bases={game.bases} animate={basesPulse} />
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -497,9 +585,21 @@ export function LiveAtBat({ game }: Props) {
           )}
         </div>
         <div className="flex items-center gap-2 text-2xl font-bold tabular-nums">
-          <span className={game.inningHalf === 'top' ? 'text-white' : 'text-gray-400'}>{game.score.away}</span>
+          <span
+            key={`away-${game.score.away}`}
+            className={cn(
+              game.inningHalf === 'top' ? 'text-white' : 'text-gray-400',
+              scoreFlash.away && 'anim-score-flash',
+            )}
+          >{game.score.away}</span>
           <span className="text-gray-700 text-base">—</span>
-          <span className={game.inningHalf === 'bottom' ? 'text-white' : 'text-gray-400'}>{game.score.home}</span>
+          <span
+            key={`home-${game.score.home}`}
+            className={cn(
+              game.inningHalf === 'bottom' ? 'text-white' : 'text-gray-400',
+              scoreFlash.home && 'anim-score-flash',
+            )}
+          >{game.score.home}</span>
         </div>
         <div className="leading-tight text-right">
           <div className={`text-[12px] font-bold ${game.inningHalf === 'bottom' ? 'text-white' : 'text-gray-400'}`}>
@@ -514,6 +614,55 @@ export function LiveAtBat({ game }: Props) {
         <img src={teamLogoUrl(game.teams.home.id)} alt={game.teams.home.abbrev} width={28} height={28} className="h-7 w-7 object-contain" />
       </div>
 
+      {/* ─── Win Probability bar (live) ─────────────────────────────────── */}
+      {game.wpaTimeline.length > 0 && (
+        <div className="px-1">
+          <div className="flex items-center gap-1.5 text-[8.5px] uppercase tracking-wider text-gray-500 leading-none">
+            <span className="tabular-nums" style={{ color: wpAway > 0.5 ? TEAM_GOLD : 'rgba(255,255,255,0.55)' }}>
+              {Math.round(wpAway * 100)}%
+            </span>
+            <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.04] border border-white/5"
+                 title={`Win Probability — ${game.teams.away.abbrev} ${Math.round(wpAway * 100)}% / ${game.teams.home.abbrev} ${Math.round(wpHome * 100)}%`}>
+              <div
+                className="h-full transition-all duration-700 ease-out"
+                style={{ width: `${wpAway * 100}%`, background: '#475569' }}
+              />
+              <div
+                className="h-full transition-all duration-700 ease-out"
+                style={{ width: `${wpHome * 100}%`, background: TEAM_TEAL }}
+              />
+            </div>
+            <span className="tabular-nums" style={{ color: wpHome > 0.5 ? TEAM_TEAL : 'rgba(255,255,255,0.55)' }}>
+              {Math.round(wpHome * 100)}%
+            </span>
+          </div>
+          <div className="text-[8px] text-gray-600 text-center mt-0.5 uppercase tracking-widest">Win Probability</div>
+        </div>
+      )}
+
+      {/* ─── HR Celebration overlay ────────────────────────────────────── */}
+      {hrCelebrate && (
+        <div className="relative pointer-events-none -my-1">
+          <div className="absolute inset-x-0 top-0 flex justify-center">
+            <div className="anim-pitch-pill px-3 py-1.5 rounded-full bg-amber-400 text-black text-[12px] font-extrabold uppercase tracking-widest shadow-[0_0_20px_rgba(255,183,0,0.7)]">
+              💣 Home Run!
+            </div>
+          </div>
+          {/* Spark particles */}
+          {Array.from({ length: 12 }).map((_, i) => {
+            const angle = (i / 12) * Math.PI * 2;
+            const x = Math.cos(angle) * 80;
+            return (
+              <span
+                key={i}
+                className="anim-hr-spark absolute top-3 left-1/2 h-1.5 w-1.5 rounded-full bg-amber-400"
+                style={{ '--x': `${x}px`, animationDelay: `${i * 60}ms` } as React.CSSProperties}
+              />
+            );
+          })}
+        </div>
+      )}
+
       {/* ─── Row 3: matchup hero — big linked player cards ──────────── */}
       <div className="grid grid-cols-2 gap-2">
         {/* BATTER CARD */}
@@ -526,11 +675,12 @@ export function LiveAtBat({ game }: Props) {
           <div className="text-[8px] uppercase tracking-widest text-gray-500 self-start">At bat</div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={playerHeadshotLargeUrl(play.batter.id, 240)}
+            src={playerHeadshotLargeUrl(play.batter.id, 320)}
             alt={play.batter.fullName}
             width={80}
             height={80}
-            className="h-20 w-20 rounded-full border-2 border-white/15 bg-white/5 object-cover object-top shadow-md group-hover:border-white/40 transition-colors"
+            className="h-20 w-20 rounded-full border-2 border-white/15 bg-white/5 object-cover shadow-md group-hover:border-white/40 transition-colors"
+            style={{ objectPosition: '50% 28%' }}
             onError={e => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
           />
           <div className="text-center mt-1 leading-tight">
@@ -555,11 +705,12 @@ export function LiveAtBat({ game }: Props) {
           <div className="text-[8px] uppercase tracking-widest text-gray-500 self-end">Pitching</div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={playerHeadshotLargeUrl(play.pitcher.id, 240)}
+            src={playerHeadshotLargeUrl(play.pitcher.id, 320)}
             alt={play.pitcher.fullName}
             width={80}
             height={80}
-            className="h-20 w-20 rounded-full border-2 border-white/15 bg-white/5 object-cover object-top shadow-md group-hover:border-white/40 transition-colors"
+            className="h-20 w-20 rounded-full border-2 border-white/15 bg-white/5 object-cover shadow-md group-hover:border-white/40 transition-colors"
+            style={{ objectPosition: '50% 28%' }}
             onError={e => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
           />
           <div className="text-center mt-1 leading-tight">
@@ -585,12 +736,24 @@ export function LiveAtBat({ game }: Props) {
           maxWidth={150}
         />
         {lastPitch ? (
-          <div className="flex items-center gap-2 text-[11px] tabular-nums leading-none rounded bg-black/40 px-2 py-1 mt-1"
-               style={{ borderTop: `2px solid ${lastCat ? PITCH_COLORS[lastCat] : 'transparent'}` }}>
+          <div
+            key={`pitch-${pitches.length}`}
+            className="anim-pitch-pill flex items-center gap-2 text-[11px] tabular-nums leading-none rounded bg-black/40 px-2 py-1 mt-1"
+            style={{ borderTop: `2px solid ${lastCat ? PITCH_COLORS[lastCat] : 'transparent'}` }}
+          >
             <span className="font-bold" style={{ color: lastCat ? PITCH_COLORS[lastCat] : '#e5e7eb' }}>
               {lastPitch.type?.code ?? '?'}
             </span>
-            {lastPitch.speed != null && <span className="text-gray-200 font-semibold">{Math.round(lastPitch.speed)} mph</span>}
+            {lastPitch.speed != null && (
+              <span
+                className={cn(
+                  'font-semibold tabular-nums',
+                  lastPitch.speed >= 95 ? 'text-red-400 px-1.5 py-0.5 rounded-full anim-velo-ping' : 'text-gray-200',
+                )}
+              >
+                {Math.round(lastPitch.speed)} mph
+              </span>
+            )}
             {lastPitch.spinRate != null && <span className="text-gray-400">{Math.round(lastPitch.spinRate)} rpm</span>}
             {lastCat && <span className="text-gray-500">{PITCH_LABELS[lastCat]}</span>}
             {tnl != null && tnl >= 70 && (
@@ -609,12 +772,24 @@ export function LiveAtBat({ game }: Props) {
       <SectionHeading title="Live Odds — This At Bat" accent={TEAM_GOLD}
         sub={lean === 'hitter' ? "Count favors hitter" : lean === 'pitcher' ? "Count favors pitcher" : "Even count"} />
       <div className="grid grid-cols-4 gap-1">
-        <LiveStat statKey="OBP_LIVE" label="OBP@" value={fmt3(obpLive)} accent={TEAM_GOLD} emphasize
+        <LiveStat statKey="OBP_LIVE" label="OBP@"
+          value={<span key={`obp-${balls}-${strikes}`} className="anim-num-tick inline-block">{fmt3(obpLive)}</span>}
+          popupValue={fmt3(obpLive)}
+          accent={TEAM_GOLD} emphasize
           sub={obpDelta >= 0 ? `+${fmt3(obpDelta)}` : fmt3(obpDelta)}
           tone={obpDelta >= 0 ? 'good' : 'bad'} />
-        <LiveStat statKey="HIT_PROB" label="Hit%" value={fmtPct(hitProb)} accent={TEAM_GOLD} />
-        <LiveStat statKey="K_RISK" label="K Risk" value={fmtPct(kRisk)} tone={kRisk > 0.40 ? 'bad' : 'neutral'} />
-        <LiveStat statKey="BB_PROB" label="BB%" value={fmtPct(bbProbReal)} tone="neutral" />
+        <LiveStat statKey="HIT_PROB" label="Hit%"
+          value={<span key={`hit-${balls}-${strikes}`} className="anim-num-tick inline-block">{fmtPct(hitProb)}</span>}
+          popupValue={fmtPct(hitProb)}
+          accent={TEAM_GOLD} />
+        <LiveStat statKey="K_RISK" label="K Risk"
+          value={<span key={`k-${balls}-${strikes}`} className="anim-num-tick inline-block">{fmtPct(kRisk)}</span>}
+          popupValue={fmtPct(kRisk)}
+          tone={kRisk > 0.40 ? 'bad' : 'neutral'} />
+        <LiveStat statKey="BB_PROB" label="BB%"
+          value={<span key={`bb-${balls}-${strikes}`} className="anim-num-tick inline-block">{fmtPct(bbProbReal)}</span>}
+          popupValue={fmtPct(bbProbReal)}
+          tone="neutral" />
       </div>
       <div className="grid grid-cols-4 gap-1">
         <LiveStat statKey="LEV" label="LI" value={lev.toFixed(2)} accent={TEAM_GOLD}
@@ -954,7 +1129,9 @@ export function LiveAtBat({ game }: Props) {
             </span>
           </div>
           <div className="flex flex-wrap gap-1">
-            {pitches.map((p, i) => <PitchPip key={i} p={p} />)}
+            {pitches.map((p, i) => (
+              <PitchPip key={`${pitches.length}-${i}`} p={p} animate={i === pitches.length - 1} />
+            ))}
           </div>
         </div>
       )}
